@@ -274,18 +274,26 @@ async function fetchList(assetDetails) {
             newParts.push(
                 fetchText(effectiveURL(part.url), cacheDir).then(details => {
                     const { url, error } = details;
-                    if ( error !== undefined ) { return details; }
+                    // They Live fork: upstream returns {url, error} on fetch
+                    // failure, but expandIncludes blindly reads part.content
+                    // and crashes. Treat failed fetches as empty filter lists
+                    // so the build can proceed past flaky remote sources.
+                    if ( error !== undefined ) {
+                        console.warn(`[they-live] fetch failed, skipping: ${url} (${error})`);
+                        return { url, content: '' };
+                    }
                     const content = details.content.trim();
                     if ( /* content === '' || */ /^<.*>$/.test(content) ) {
-                        return { url, error: `Bad content: ${url}` };
+                        console.warn(`[they-live] bad content, skipping: ${url}`);
+                        return { url, content: '' };
                     }
                     return { url, content };
                 })
             );
             newParts.push(`!#trusted off ${secret}`);
         }
-        if ( parts.some(v => typeof v === 'object' && v.error) ) { return; }
         parts = await Promise.all(newParts);
+        if ( parts.some(v => typeof v === 'object' && v.error) ) { return; }
         parts = sfp.utils.preparser.expandIncludes(parts, env);
     }
     const text = parts.join('\n');

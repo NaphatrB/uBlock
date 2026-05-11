@@ -188,7 +188,8 @@ const uBOL_processNodes = ( ) => {
     surveyMissCount = 0;
     styleSheetTimer = self.requestAnimationFrame(( ) => {
         styleSheetTimer = undefined;
-        self.cssAPI.insert(`${styleSheetSelectors}{display:none!important;}`);
+        self.cssAPI.insert(self.theyLiveCss(styleSheetSelectors));
+        self.theyLiveAssign(styleSheetSelectors);
     });
 };
 

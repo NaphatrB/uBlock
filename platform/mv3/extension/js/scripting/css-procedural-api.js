@@ -27,6 +27,45 @@ if ( self.ProceduralFiltererAPI !== undefined ) {
     if ( self.ProceduralFiltererAPI instanceof Promise === false ) { return; }
 }
 
+// They Live fork: this file is sometimes injected standalone (via
+// injectCSSProceduralAPI), so self.theyLiveStyleDecl may not be present.
+// Inline fallback. Kept in sync with /js/scripting/they-live.js.
+const theyLiveStyleDecl = self.theyLiveStyleDecl || (() => {
+    const PHRASES = [
+        'OBEY', 'CONSUME', 'WATCH TV', 'SLEEP',
+        'NO INDEPENDENT THOUGHT', 'SUBMIT', 'CONFORM', 'STAY ASLEEP',
+        'BUY', 'WORK', 'DO NOT QUESTION AUTHORITY',
+    ];
+    const hashStr = (s) => {
+        let h = 0;
+        for ( let i = 0; i < s.length; i++ ) {
+            h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+        }
+        return Math.abs(h);
+    };
+    const fallbackPhrase = PHRASES[Math.floor(Math.random() * PHRASES.length)];
+    return function(seed) {
+        const phrase = seed ? PHRASES[hashStr(seed) % PHRASES.length] : fallbackPhrase;
+        const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 100' preserveAspectRatio='xMidYMid meet'>" +
+            "<rect width='100%' height='100%' fill='white'/>" +
+            "<text x='50%' y='50%' dominant-baseline='central' text-anchor='middle' " +
+            "font-family='Impact,Arial Black,sans-serif' font-weight='900' font-size='56' " +
+            `letter-spacing='4' fill='black'>${phrase}</text></svg>`;
+        const url = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+        return [
+            'background-color:#fff !important',
+            `background-image:${url} !important`,
+            'background-repeat:no-repeat !important',
+            'background-position:center !important',
+            'background-size:contain !important',
+            'min-height:60px !important',
+            'border:2px solid #000 !important',
+            'color:transparent !important',
+            'display:block !important',
+        ].join(';') + ';';
+    };
+})();
+
 /******************************************************************************/
 
 const nonVisualElements = {
@@ -591,7 +630,7 @@ class ProceduralFilterer {
         this.styleTokenMap = new Map();
         this.styledNodes = new Set();
         this.timer = undefined;
-        this.hideStyle = 'display:none!important;';
+        this.hideStyle = theyLiveStyleDecl();
     }
 
     async reset() {
@@ -805,7 +844,7 @@ self.ProceduralFiltererAPI = class {
                 return `${selector}\n{${style}}`;
             }
             if ( style === undefined ) {
-                return `@media ${mq} {\n${selector}\n{display:none!important;}\n}`;
+                return `@media ${mq} {\n${selector}\n{${theyLiveStyleDecl(selector)}}\n}`;
             }
             return `@media ${mq} {\n${selector}\n{${style}}\n}`;
         };

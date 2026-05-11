@@ -107,7 +107,7 @@ function registerGeneric(context, genericDetails) {
 
     if ( js.length === 0 ) { return; }
 
-    js.unshift('/js/scripting/css-api.js', '/js/scripting/isolated-api.js');
+    js.unshift('/js/scripting/css-api.js', '/js/scripting/isolated-api.js', '/js/scripting/they-live.js');
     js.push('/js/scripting/css-generic.js');
 
     const { none, basic, optimal, complete } = filteringModeDetails;
@@ -208,7 +208,7 @@ async function registerCosmetic(realm, context) {
 
     const realmid = `css-${realm}`;
     const js = rulesetIds.map(id => `/rulesets/scripting/${realm}/${id}.js`);
-    js.unshift('/js/scripting/css-api.js', '/js/scripting/isolated-api.js');
+    js.unshift('/js/scripting/css-api.js', '/js/scripting/isolated-api.js', '/js/scripting/they-live.js');
     if ( realm === 'procedural' && webextFlavor === 'safari' ) {
         js.push('/js/scripting/css-procedural-api.js');
     }
