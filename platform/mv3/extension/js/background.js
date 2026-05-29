@@ -232,9 +232,10 @@ const THEY_LIVE_PHRASES = [
 const CLASSIFY_SYSTEM_PROMPT =
     `Ad classifier for satirical labelling. Output one label per ad, same order.\n` +
     `Labels: ${THEY_LIVE_PHRASES.join('|')}\n` +
-    `retail/shop→CONSUME/BUY; stream/game→WATCH TV/SLEEP; ` +
-    `finance/bank→WORK/OBEY; news/politics→NO INDEPENDENT THOUGHT; ` +
-    `social/tech→CONFORM/SUBMIT; other→OBEY\n` +
+    `Signals in context: [page:hostname] [sel:css-selector] [link:hostname] visible-text [img-alt]\n` +
+    `retail/shop→CONSUME/BUY; stream/game/video→WATCH TV/SLEEP; ` +
+    `finance/bank/insurance→WORK/OBEY; news/politics/media→NO INDEPENDENT THOUGHT; ` +
+    `social/tech/app→CONFORM/SUBMIT; other→OBEY\n` +
     `Rules: exact label text only, one per line, no extra text.`;
 
 // In-memory classification cache (context hash → phrase).

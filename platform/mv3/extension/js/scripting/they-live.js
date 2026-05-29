@@ -42,25 +42,38 @@ if ( typeof chrome !== 'undefined' && chrome.runtime?.sendMessage ) {
 
 // Extract text/metadata from an ad element for LLM classification.
 // Kept compact intentionally — fewer tokens per ad context.
-const extractAdContext = (el) => {
+const extractAdContext = (el, selector) => {
     const parts = [];
-    const text = el.innerText?.trim().slice(0, 120);
+
+    // Page hostname is a strong signal (amazon.com → CONSUME, cnn.com → NO INDEPENDENT THOUGHT)
+    if ( location.hostname ) { parts.push(`[page:${location.hostname}]`); }
+
+    // CSS selector often contains ad-type keywords (.sponsored, [data-ad-type], etc.)
+    if ( selector ) { parts.push(`[sel:${selector.slice(0, 80)}]`); }
+
+    // Visible text inside the ad slot
+    const text = el.innerText?.trim().slice(0, 100);
     if ( text ) { parts.push(text); }
+
+    // Image alt texts
     for ( const img of el.querySelectorAll('img[alt]') ) {
-        const alt = img.alt?.trim().slice(0, 50);
+        const alt = img.alt?.trim().slice(0, 40);
         if ( alt ) { parts.push(`[${alt}]`); }
     }
+
+    // Accessibility attributes
     for ( const attr of [ 'aria-label', 'title' ] ) {
-        const val = el.getAttribute(attr)?.trim().slice(0, 60);
+        const val = el.getAttribute(attr)?.trim().slice(0, 50);
         if ( val ) { parts.push(`[${val}]`); }
     }
+
+    // Destination link hostname
     const link = el.querySelector('a[href]');
     if ( link?.href ) {
-        try {
-            parts.push(`[${new URL(link.href).hostname}]`);
-        } catch { /* invalid URL */ }
+        try { parts.push(`[link:${new URL(link.href).hostname}]`); } catch { /* invalid URL */ }
     }
-    return parts.join(' ').slice(0, 200) || '(no content)';
+
+    return parts.join(' ').slice(0, 250) || '(no content)';
 };
 
 // Batch elements for a single deferred LLM classify call.
@@ -101,8 +114,8 @@ const flushClassifyQueue = () => {
     });
 };
 
-const enqueueClassify = (el) => {
-    classifyQueue.push({ el, context: extractAdContext(el) });
+const enqueueClassify = (el, selector) => {
+    classifyQueue.push({ el, context: extractAdContext(el, selector) });
     if ( classifyTimer !== null ) { return; }
     classifyTimer = (self.setTimeout || setTimeout)(flushClassifyQueue, 250);
 };
@@ -211,7 +224,7 @@ const tagAll = () => {
             if ( el.hasAttribute(ATTR) ) { continue; }
             if ( ollamaEnabled ) {
                 el.setAttribute(ATTR, LOADING_PHRASE);
-                enqueueClassify(el);
+                enqueueClassify(el, selector);
             } else {
                 el.setAttribute(ATTR, randomPhrase());
             }
