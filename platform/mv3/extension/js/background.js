@@ -385,6 +385,40 @@ function onMessage(request, sender, callback) {
         return true;
     }
 
+    case 'theyLiveTest': {
+        const { ollamaUrl, ollamaModel, ollamaApiKey, ollamaThinking } = request;
+        const testUrl = (ollamaUrl || 'https://ollama.com').replace(/\/$/, '');
+        const testModel = ollamaModel || 'gemma4:31b-cloud';
+        const headers = { 'Content-Type': 'application/json' };
+        if ( ollamaApiKey ) { headers['Authorization'] = `Bearer ${ollamaApiKey}`; }
+        fetch(`${testUrl}/api/chat`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                model: testModel,
+                messages: [{ role: 'user', content:
+                    'Classify this ad as one of: OBEY, CONSUME, WATCH TV, SLEEP, ' +
+                    'NO INDEPENDENT THOUGHT, SUBMIT, CONFORM, STAY ASLEEP, BUY, WORK, ' +
+                    'DO NOT QUESTION AUTHORITY.\nAd: "buy cheap car insurance now"\n' +
+                    'Reply with one label only.' }],
+                stream: false,
+                ...(ollamaThinking ? { think: true } : {}),
+            }),
+            signal: AbortSignal.timeout(15000),
+        }).then(async res => {
+            if ( !res.ok ) {
+                callback({ ok: false, error: `HTTP ${res.status}` });
+                return;
+            }
+            const data = await res.json();
+            const label = (data.message?.content || '').trim();
+            callback({ ok: true, label });
+        }).catch(err => {
+            callback({ ok: false, error: String(err) });
+        });
+        return true;
+    }
+
     case 'startCustomFilters':
         if ( frameId === false ) { return false; }
         startCustomFilters(tabId, frameId).then(( ) => {

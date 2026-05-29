@@ -241,6 +241,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
     const apiKeyEl = document.querySelector('#theyLiveOllamaApiKey');
     const thinkingEl = document.querySelector('#theyLiveThinking');
     const saveBtn = document.querySelector('#theyLiveSave');
+    const testBtn = document.querySelector('#theyLiveTest');
     const statusEl = document.querySelector('#theyLiveSaveStatus');
     const fieldsEl = document.querySelector('#theyLiveOllamaFields');
 
@@ -252,6 +253,29 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
 
     if ( enabledEl ) {
         enabledEl.addEventListener('change', refreshFieldVisibility);
+    }
+
+    if ( testBtn ) {
+        testBtn.addEventListener('click', () => {
+            if ( statusEl ) { statusEl.textContent = '⏳ Testing…'; }
+            testBtn.disabled = true;
+            sendMessage({
+                what: 'theyLiveTest',
+                ollamaUrl: urlEl?.value.trim() || 'https://ollama.com',
+                ollamaModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
+                ollamaApiKey: apiKeyEl?.value || '',
+                ollamaThinking: thinkingEl?.checked || false,
+            }).then(result => {
+                testBtn.disabled = false;
+                if ( !statusEl ) { return; }
+                if ( result?.ok ) {
+                    statusEl.textContent = `✓ Connected — got: "${result.label}"`;
+                } else {
+                    statusEl.textContent = `✗ Failed: ${result?.error || 'unknown error'}`;
+                }
+                setTimeout(() => { statusEl.textContent = ''; }, 6000);
+            });
+        });
     }
 
     if ( saveBtn ) {
