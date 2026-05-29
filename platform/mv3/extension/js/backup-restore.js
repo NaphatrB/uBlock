@@ -66,21 +66,21 @@ export async function backupToObject(currentConfig) {
     if ( typeof dnrRules === 'string' && dnrRules.length !== 0 ) {
         out.dnrRules = dnrRules.split(/\n+/);
     }
-    // They Live — Ollama AI classification settings
+    // They Live — AI classification settings
     const [tlEnabled, tlUrl, tlModel, tlApiKey, tlThinking] = await Promise.all([
-        localRead('theyLive.ollamaEnabled'),
-        localRead('theyLive.ollamaUrl'),
-        localRead('theyLive.ollamaModel'),
-        localRead('theyLive.ollamaApiKey'),
-        localRead('theyLive.ollamaThinking'),
+        localRead('theyLive.aiEnabled'),
+        localRead('theyLive.aiBaseUrl'),
+        localRead('theyLive.aiModel'),
+        localRead('theyLive.aiApiKey'),
+        localRead('theyLive.aiThinking'),
     ]);
     if ( tlEnabled || tlUrl || tlModel || tlApiKey || tlThinking ) {
         out.theyLive = {
-            ollamaEnabled: Boolean(tlEnabled),
-            ollamaUrl: tlUrl || 'https://ollama.com',
-            ollamaModel: tlModel || 'gemma4:31b-cloud',
-            ollamaApiKey: tlApiKey || '',
-            ollamaThinking: Boolean(tlThinking),
+            aiEnabled: Boolean(tlEnabled),
+            aiBaseUrl: tlUrl || 'https://ollama.com',
+            aiModel: tlModel || 'gemma4:31b-cloud',
+            aiApiKey: tlApiKey || '',
+            aiThinking: Boolean(tlThinking),
         };
     }
     return out;
@@ -168,16 +168,16 @@ export async function restoreFromObject(targetConfig) {
     }
     await sendMessage({ what: 'updateUserDnrRules' });
 
-    // They Live — Ollama AI classification settings
+    // They Live — AI classification settings
     if ( targetConfig.theyLive ) {
         const tl = targetConfig.theyLive;
         await sendMessage({
             what: 'setTheyLiveSettings',
-            ollamaEnabled: Boolean(tl.ollamaEnabled),
-            ollamaUrl: tl.ollamaUrl || 'https://ollama.com',
-            ollamaModel: tl.ollamaModel || 'gemma4:31b-cloud',
-            ollamaApiKey: tl.ollamaApiKey || '',
-            ollamaThinking: Boolean(tl.ollamaThinking),
+            aiEnabled: Boolean(tl.aiEnabled),
+            aiBaseUrl: tl.aiBaseUrl || 'https://ollama.com',
+            aiModel: tl.aiModel || 'gemma4:31b-cloud',
+            aiApiKey: tl.aiApiKey || '',
+            aiThinking: Boolean(tl.aiThinking),
         });
     }
 }

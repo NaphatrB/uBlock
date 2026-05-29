@@ -236,14 +236,16 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
 
 {
     const enabledEl = document.querySelector('#theyLiveEnabled');
-    const urlEl = document.querySelector('#theyLiveOllamaUrl');
-    const modelEl = document.querySelector('#theyLiveOllamaModel');
-    const apiKeyEl = document.querySelector('#theyLiveOllamaApiKey');
+    const urlEl = document.querySelector('#theyLiveAiUrl');
+    const modelEl = document.querySelector('#theyLiveAiModel');
+    const apiKeyEl = document.querySelector('#theyLiveAiApiKey');
     const thinkingEl = document.querySelector('#theyLiveThinking');
     const saveBtn = document.querySelector('#theyLiveSave');
     const testBtn = document.querySelector('#theyLiveTest');
+    const clearCacheBtn = document.querySelector('#theyLiveClearCache');
+    const cacheSizeEl = document.querySelector('#theyLiveCacheSize');
     const statusEl = document.querySelector('#theyLiveSaveStatus');
-    const fieldsEl = document.querySelector('#theyLiveOllamaFields');
+    const fieldsEl = document.querySelector('#theyLiveAiFields');
 
     const refreshFieldVisibility = () => {
         if ( fieldsEl ) {
@@ -261,10 +263,10 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
             testBtn.disabled = true;
             sendMessage({
                 what: 'theyLiveTest',
-                ollamaUrl: urlEl?.value.trim() || 'https://ollama.com',
-                ollamaModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
-                ollamaApiKey: apiKeyEl?.value || '',
-                ollamaThinking: thinkingEl?.checked || false,
+                aiBaseUrl: urlEl?.value.trim() || 'https://ollama.com',
+                aiModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
+                aiApiKey: apiKeyEl?.value || '',
+                aiThinking: thinkingEl?.checked || false,
             }).then(result => {
                 testBtn.disabled = false;
                 if ( !statusEl ) { return; }
@@ -278,15 +280,23 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
         });
     }
 
+    if ( clearCacheBtn ) {
+        clearCacheBtn.addEventListener('click', () => {
+            sendMessage({ what: 'theyLiveClearCache' }).then(result => {
+                if ( cacheSizeEl ) { cacheSizeEl.textContent = '0 cached'; }
+            });
+        });
+    }
+
     if ( saveBtn ) {
         saveBtn.addEventListener('click', () => {
             sendMessage({
                 what: 'setTheyLiveSettings',
-                ollamaEnabled: enabledEl?.checked || false,
-                ollamaUrl: urlEl?.value.trim() || 'https://ollama.com',
-                ollamaModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
-                ollamaApiKey: apiKeyEl?.value || '',
-                ollamaThinking: thinkingEl?.checked || false,
+                aiEnabled: enabledEl?.checked || false,
+                aiBaseUrl: urlEl?.value.trim() || 'https://ollama.com',
+                aiModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
+                aiApiKey: apiKeyEl?.value || '',
+                aiThinking: thinkingEl?.checked || false,
             }).then(() => {
                 if ( statusEl ) {
                     statusEl.textContent = '✓ Saved';
@@ -298,12 +308,18 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
 
     sendMessage({ what: 'getTheyLiveSettings' }).then(data => {
         if ( !data ) { return; }
-        if ( enabledEl ) { enabledEl.checked = Boolean(data.ollamaEnabled); }
-        if ( urlEl ) { urlEl.value = data.ollamaUrl || 'https://ollama.com'; }
-        if ( modelEl ) { modelEl.value = data.ollamaModel || 'gemma4:31b-cloud'; }
-        if ( apiKeyEl ) { apiKeyEl.value = data.ollamaApiKey || ''; }
-        if ( thinkingEl ) { thinkingEl.checked = Boolean(data.ollamaThinking); }
+        if ( enabledEl ) { enabledEl.checked = Boolean(data.aiEnabled); }
+        if ( urlEl ) { urlEl.value = data.aiBaseUrl || 'https://ollama.com'; }
+        if ( modelEl ) { modelEl.value = data.aiModel || 'gemma4:31b-cloud'; }
+        if ( apiKeyEl ) { apiKeyEl.value = data.aiApiKey || ''; }
+        if ( thinkingEl ) { thinkingEl.checked = Boolean(data.aiThinking); }
         refreshFieldVisibility();
+    });
+
+    sendMessage({ what: 'getTheyLiveCacheSize' }).then(result => {
+        if ( cacheSizeEl && result?.size !== undefined ) {
+            cacheSizeEl.textContent = `${result.size} cached`;
+        }
     });
 }
 

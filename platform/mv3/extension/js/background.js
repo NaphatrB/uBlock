@@ -220,29 +220,81 @@ function setDeveloperMode(state) {
 }
 
 /******************************************************************************/
-// They Live — LLM ad classification via Ollama
+// They Live — LLM ad classification via OpenAI-compatible API
 
 const THEY_LIVE_PHRASES = [
     'OBEY', 'CONSUME', 'WATCH TV', 'SLEEP', 'NO INDEPENDENT THOUGHT',
     'SUBMIT', 'CONFORM', 'STAY ASLEEP', 'BUY', 'WORK', 'DO NOT QUESTION AUTHORITY',
 ];
 
+// In-memory classification cache (context hash → phrase).
+// Persisted to chrome.storage.local under 'theyLiveCache'.
+const CACHE_MAX_SIZE = 1000;
+const classifyCache = new Map();
+let cacheLoaded = false;
+
+const cacheKey = (s) => {
+    let h = 5381;
+    for ( let i = 0; i < s.length; i++ ) {
+        h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    }
+    return (h >>> 0).toString(36);
+};
+
+const loadCache = async () => {
+    if ( cacheLoaded ) { return; }
+    cacheLoaded = true;
+    try {
+        const data = await chrome.storage.local.get('theyLiveCache');
+        if ( data.theyLiveCache && typeof data.theyLiveCache === 'object' ) {
+            for ( const [k, v] of Object.entries(data.theyLiveCache) ) {
+                classifyCache.set(k, v);
+            }
+        }
+    } catch { /* storage unavailable */ }
+};
+
+const persistCache = () => {
+    if ( classifyCache.size > CACHE_MAX_SIZE ) {
+        const excess = [...classifyCache.keys()].slice(0, classifyCache.size - CACHE_MAX_SIZE);
+        for ( const k of excess ) { classifyCache.delete(k); }
+    }
+    chrome.storage.local.set({ theyLiveCache: Object.fromEntries(classifyCache) }).catch(() => {});
+};
+
 async function theyLiveClassify(contexts) {
     if ( contexts.length === 0 ) { return []; }
 
     const [enabled, url, model, apiKey, thinking] = await Promise.all([
-        localRead('theyLive.ollamaEnabled'),
-        localRead('theyLive.ollamaUrl'),
-        localRead('theyLive.ollamaModel'),
-        localRead('theyLive.ollamaApiKey'),
-        localRead('theyLive.ollamaThinking'),
+        localRead('theyLive.aiEnabled'),
+        localRead('theyLive.aiBaseUrl'),
+        localRead('theyLive.aiModel'),
+        localRead('theyLive.aiApiKey'),
+        localRead('theyLive.aiThinking'),
     ]);
     if ( !enabled ) { return []; }
 
-    const ollamaUrl = (url || 'https://ollama.com').replace(/\/$/, '');
-    const ollamaModel = model || 'gemma4:31b-cloud';
+    await loadCache();
 
-    const adLines = contexts.map((ctx, i) => `Ad ${i + 1}: ${ctx}`).join('\n');
+    const baseUrl = (url || 'https://ollama.com').replace(/\/$/, '');
+    const aiModel = model || 'gemma4:31b-cloud';
+
+    // Serve cache hits immediately; only call LLM for misses.
+    const results = new Array(contexts.length).fill('');
+    const misses = [];
+    for ( let i = 0; i < contexts.length; i++ ) {
+        const k = cacheKey(contexts[i]);
+        const cached = classifyCache.get(k);
+        if ( cached ) {
+            results[i] = cached;
+        } else {
+            misses.push({ i, k, ctx: contexts[i] });
+        }
+    }
+    if ( misses.length === 0 ) { return results; }
+
+    const missContexts = misses.map(m => m.ctx);
+    const adLines = missContexts.map((ctx, i) => `Ad ${i + 1}: ${ctx}`).join('\n');
     const phraseList = THEY_LIVE_PHRASES.join(', ');
     const prompt =
         `You are classifying advertisements for satirical effect.\n` +
@@ -256,7 +308,7 @@ async function theyLiveClassify(contexts) {
         `- social/apps/tech → CONFORM or SUBMIT\n` +
         `- unclear → OBEY\n\n` +
         `${adLines}\n\n` +
-        `Reply with exactly ${contexts.length} line(s), one label per line, in order. ` +
+        `Reply with exactly ${missContexts.length} line(s), one label per line, in order. ` +
         `Use exact labels from the list only, no other text.`;
 
     const headers = { 'Content-Type': 'application/json' };
@@ -264,11 +316,11 @@ async function theyLiveClassify(contexts) {
 
     let response;
     try {
-        response = await fetch(`${ollamaUrl}/api/chat`, {
+        response = await fetch(`${baseUrl}/v1/chat/completions`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
-                model: ollamaModel,
+                model: aiModel,
                 messages: [{ role: 'user', content: prompt }],
                 stream: false,
                 ...(thinking ? { think: true } : {}),
@@ -277,12 +329,12 @@ async function theyLiveClassify(contexts) {
         });
     } catch(reason) {
         ubolErr(`theyLiveClassify/fetch/${reason}`);
-        return [];
+        return results;
     }
 
     if ( !response.ok ) {
         ubolErr(`theyLiveClassify/http/${response.status}`);
-        return [];
+        return results;
     }
 
     let data;
@@ -290,15 +342,26 @@ async function theyLiveClassify(contexts) {
         data = await response.json();
     } catch(reason) {
         ubolErr(`theyLiveClassify/json/${reason}`);
-        return [];
+        return results;
     }
 
-    const content = data.message?.content || '';
-    const lines = content.trim().split('\n').map(l => l.trim().toUpperCase());
-    return contexts.map((_, i) => {
-        const candidate = lines[i] || '';
-        return THEY_LIVE_PHRASES.includes(candidate) ? candidate : '';
-    });
+    // OpenAI-compatible response; strip <think>…</think> blocks (Ollama reasoning models).
+    let content = data.choices?.[0]?.message?.content || '';
+    content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    const lines = content.split('\n').map(l => l.trim().toUpperCase());
+
+    let cacheUpdated = false;
+    for ( let j = 0; j < misses.length; j++ ) {
+        const candidate = lines[j] || '';
+        const phrase = THEY_LIVE_PHRASES.includes(candidate) ? candidate : '';
+        results[misses[j].i] = phrase;
+        if ( phrase ) {
+            classifyCache.set(misses[j].k, phrase);
+            cacheUpdated = true;
+        }
+    }
+    if ( cacheUpdated ) { persistCache(); }
+    return results;
 }
 
 /******************************************************************************/
@@ -356,42 +419,42 @@ function onMessage(request, sender, callback) {
 
     case 'getTheyLiveSettings': {
         Promise.all([
-            localRead('theyLive.ollamaEnabled'),
-            localRead('theyLive.ollamaUrl'),
-            localRead('theyLive.ollamaModel'),
-            localRead('theyLive.ollamaApiKey'),
-            localRead('theyLive.ollamaThinking'),
+            localRead('theyLive.aiEnabled'),
+            localRead('theyLive.aiBaseUrl'),
+            localRead('theyLive.aiModel'),
+            localRead('theyLive.aiApiKey'),
+            localRead('theyLive.aiThinking'),
         ]).then(([enabled, url, model, apiKey, thinking]) => {
             callback({
-                ollamaEnabled: Boolean(enabled),
-                ollamaUrl: url || 'https://ollama.com',
-                ollamaModel: model || 'gemma4:31b-cloud',
-                ollamaApiKey: apiKey || '',
-                ollamaThinking: Boolean(thinking),
+                aiEnabled: Boolean(enabled),
+                aiBaseUrl: url || 'https://ollama.com',
+                aiModel: model || 'gemma4:31b-cloud',
+                aiApiKey: apiKey || '',
+                aiThinking: Boolean(thinking),
             });
         });
         return true;
     }
 
     case 'setTheyLiveSettings': {
-        const { ollamaEnabled, ollamaUrl, ollamaModel, ollamaApiKey, ollamaThinking } = request;
+        const { aiEnabled, aiBaseUrl, aiModel, aiApiKey, aiThinking } = request;
         Promise.all([
-            localWrite('theyLive.ollamaEnabled', Boolean(ollamaEnabled)),
-            localWrite('theyLive.ollamaUrl', ollamaUrl || 'https://ollama.com'),
-            localWrite('theyLive.ollamaModel', ollamaModel || 'gemma4:31b-cloud'),
-            localWrite('theyLive.ollamaApiKey', ollamaApiKey || ''),
-            localWrite('theyLive.ollamaThinking', Boolean(ollamaThinking)),
+            localWrite('theyLive.aiEnabled', Boolean(aiEnabled)),
+            localWrite('theyLive.aiBaseUrl', aiBaseUrl || 'https://ollama.com'),
+            localWrite('theyLive.aiModel', aiModel || 'gemma4:31b-cloud'),
+            localWrite('theyLive.aiApiKey', aiApiKey || ''),
+            localWrite('theyLive.aiThinking', Boolean(aiThinking)),
         ]).then(() => { callback(); });
         return true;
     }
 
     case 'theyLiveTest': {
-        const { ollamaUrl, ollamaModel, ollamaApiKey, ollamaThinking } = request;
-        const testUrl = (ollamaUrl || 'https://ollama.com').replace(/\/$/, '');
-        const testModel = ollamaModel || 'gemma4:31b-cloud';
+        const { aiBaseUrl, aiModel, aiApiKey, aiThinking } = request;
+        const testUrl = (aiBaseUrl || 'https://ollama.com').replace(/\/$/, '');
+        const testModel = aiModel || 'gemma4:31b-cloud';
         const headers = { 'Content-Type': 'application/json' };
-        if ( ollamaApiKey ) { headers['Authorization'] = `Bearer ${ollamaApiKey}`; }
-        fetch(`${testUrl}/api/chat`, {
+        if ( aiApiKey ) { headers['Authorization'] = `Bearer ${aiApiKey}`; }
+        fetch(`${testUrl}/v1/chat/completions`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -402,7 +465,7 @@ function onMessage(request, sender, callback) {
                     'DO NOT QUESTION AUTHORITY.\nAd: "buy cheap car insurance now"\n' +
                     'Reply with one label only.' }],
                 stream: false,
-                ...(ollamaThinking ? { think: true } : {}),
+                ...(aiThinking ? { think: true } : {}),
             }),
             signal: AbortSignal.timeout(15000),
         }).then(async res => {
@@ -411,11 +474,24 @@ function onMessage(request, sender, callback) {
                 return;
             }
             const data = await res.json();
-            const label = (data.message?.content || '').trim();
+            let label = data.choices?.[0]?.message?.content || '';
+            label = label.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
             callback({ ok: true, label });
         }).catch(err => {
             callback({ ok: false, error: String(err) });
         });
+        return true;
+    }
+
+    case 'theyLiveClearCache': {
+        classifyCache.clear();
+        chrome.storage.local.remove('theyLiveCache').catch(() => {});
+        callback({ size: 0 });
+        return true;
+    }
+
+    case 'getTheyLiveCacheSize': {
+        loadCache().then(() => { callback({ size: classifyCache.size }); });
         return true;
     }
 

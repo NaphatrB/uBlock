@@ -101,19 +101,25 @@
     </div>
     <div id="theyLiveAI">
         <h3>They Live — AI Classification</h3>
-        <p>Use <a href="https://ollama.com" target="_blank">Ollama</a> to choose the most fitting slogan for each ad based on its content, instead of picking at random.</p>
+        <p>Use any <a href="https://platform.openai.com/docs/api-reference" target="_blank">OpenAI-compatible API</a> to choose the most fitting slogan for each ad based on its content. Works with Ollama (local or cloud), OpenAI, Groq, and any compatible endpoint.</p>
         <p>Two options — no local install required for the cloud option:</p>
         <ul>
             <li><b>Cloud</b> (no install): URL <code>https://ollama.com</code> — requires an <a href="https://ollama.com" target="_blank">ollama.com</a> account and API key.</li>
             <li><b>Local</b>: URL <code>http://localhost:11434</code> — requires <a href="https://ollama.com/download" target="_blank">Ollama installed</a> on this machine.</li>
         </ul>
-        <p><label><span class="input checkbox"><input type="checkbox" id="theyLiveEnabled"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>Enable Ollama classification</label></p>
-        <div id="theyLiveOllamaFields">
-            <p><label>Ollama URL<br><input type="text" id="theyLiveOllamaUrl" placeholder="https://ollama.com  or  http://localhost:11434"></label></p>
-            <p><label>Model<br><input type="text" id="theyLiveOllamaModel" placeholder="gemma4:31b-cloud"></label></p>
-            <p><label>API Key (required for ollama.com cloud, leave empty for local)<br><input type="password" id="theyLiveOllamaApiKey" placeholder="ollama_…"></label></p>
+        <p><label><span class="input checkbox"><input type="checkbox" id="theyLiveEnabled"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>Enable AI classification</label></p>
+        <div id="theyLiveAiFields">
+            <p><label>API Base URL<br><input type="text" id="theyLiveAiUrl" placeholder="https://ollama.com  or  http://localhost:11434"></label></p>
+            <p><label>Model<br><input type="text" id="theyLiveAiModel" placeholder="gemma4:31b-cloud"></label></p>
+            <p><label>API Key (required for cloud, leave empty for local)<br><input type="password" id="theyLiveAiApiKey" placeholder="sk-… or ollama_…"></label></p>
             <p><label><span class="input checkbox"><input type="checkbox" id="theyLiveThinking"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>Deep thinking (slower, higher quality — only for models that support it)</label></p>
-            <p><button type="button" id="theyLiveSave" class="dontshrink">Save</button> <button type="button" id="theyLiveTest" class="dontshrink">Test connection</button> <span id="theyLiveSaveStatus"></span></p>
+            <p>
+                <button type="button" id="theyLiveSave" class="dontshrink">Save</button>
+                <button type="button" id="theyLiveTest" class="dontshrink">Test connection</button>
+                <button type="button" id="theyLiveClearCache" class="dontshrink">Clear cache</button>
+                <span id="theyLiveCacheSize" style="font-size:0.85em;color:#666;margin-left:4px"></span>
+                <span id="theyLiveSaveStatus"></span>
+            </p>
         </div>
     </div>
     <div>

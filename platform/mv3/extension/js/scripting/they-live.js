@@ -36,7 +36,7 @@ const randomPhrase = () => PHRASES[Math.floor(Math.random() * PHRASES.length)];
 let ollamaEnabled = false;
 if ( typeof chrome !== 'undefined' && chrome.runtime?.sendMessage ) {
     chrome.runtime.sendMessage({ what: 'getTheyLiveSettings' })
-        .then(s => { if ( s?.ollamaEnabled ) { ollamaEnabled = true; } })
+        .then(s => { if ( s?.aiEnabled ) { ollamaEnabled = true; } })
         .catch(() => {});
 }
 
