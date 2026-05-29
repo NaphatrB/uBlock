@@ -360,6 +360,19 @@ let cacheLoaded = false;
 // Session-level classification stats (reset on service-worker restart).
 const classifyStats = { local: 0, cache: 0, llm: 0 };
 
+// Rolling log of classifications for prompt improvement analysis (session-only).
+// Cache hits are counted in phraseFreq but not re-logged (context already recorded).
+const CLASSIFY_LOG_MAX = 200;
+const classifyLog = [];
+const phraseFreq = {};
+
+const logClassification = (ctx, phrase, source) => {
+    if ( phrase ) { phraseFreq[phrase] = (phraseFreq[phrase] || 0) + 1; }
+    if ( source === 'cache' || !phrase ) { return; }
+    if ( classifyLog.length >= CLASSIFY_LOG_MAX ) { classifyLog.shift(); }
+    classifyLog.push({ ts: Date.now(), source, phrase, ctx });
+};
+
 const cacheKey = (s) => {
     let h = 5381;
     for ( let i = 0; i < s.length; i++ ) {
@@ -414,6 +427,7 @@ async function theyLiveClassify(contexts) {
         const cached = classifyCache.get(k);
         if ( cached ) {
             results[i] = cached;
+            logClassification(contexts[i], cached, 'cache');
             classifyStats.cache++;
         } else {
             misses.push({ i, k, ctx: contexts[i] });
@@ -429,6 +443,7 @@ async function theyLiveClassify(contexts) {
         if ( local ) {
             results[miss.i] = local;
             classifyCache.set(miss.k, local);
+            logClassification(miss.ctx, local, 'local');
             classifyStats.local++;
             cacheUpdated = true;
         } else {
@@ -492,6 +507,7 @@ async function theyLiveClassify(contexts) {
         results[llmMisses[j].i] = phrase;
         if ( phrase ) {
             classifyCache.set(llmMisses[j].k, phrase);
+            logClassification(llmMisses[j].ctx, phrase, 'llm');
             classifyStats.llm++;
             cacheUpdated = true;
         }
@@ -631,7 +647,12 @@ function onMessage(request, sender, callback) {
     }
 
     case 'getTheyLiveStats': {
-        callback({ ...classifyStats, cacheSize: classifyCache.size });
+        callback({ ...classifyStats, cacheSize: classifyCache.size, phraseFreq: { ...phraseFreq } });
+        return false;
+    }
+
+    case 'getTheyLiveLog': {
+        callback({ log: classifyLog.slice() });
         return false;
     }
 
