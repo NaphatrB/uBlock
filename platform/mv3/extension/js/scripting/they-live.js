@@ -117,7 +117,45 @@ const flushClassifyQueue = () => {
 const enqueueClassify = (el, selector) => {
     classifyQueue.push({ el, context: extractAdContext(el, selector) });
     if ( classifyTimer !== null ) { return; }
-    classifyTimer = (self.setTimeout || setTimeout)(flushClassifyQueue, 250);
+    // 400ms debounce: long pages load many ads in bursts; batching more
+    // together reduces total API calls with no perceptible UX cost.
+    classifyTimer = (self.setTimeout || setTimeout)(flushClassifyQueue, 400);
+};
+
+// Defer classification until the ad slot actually enters the viewport.
+// Saves API calls for ads below the fold that the user may never see.
+// Falls back to immediate enqueue if IntersectionObserver is unavailable.
+let viewportObserver;
+const pendingViewport = new Map(); // el → selector
+
+const initViewportObserver = () => {
+    if ( viewportObserver || typeof IntersectionObserver === 'undefined' ) { return; }
+    viewportObserver = new IntersectionObserver((entries) => {
+        for ( const entry of entries ) {
+            if ( !entry.isIntersecting ) { continue; }
+            const el = entry.target;
+            const selector = pendingViewport.get(el);
+            if ( selector !== undefined ) {
+                pendingViewport.delete(el);
+                viewportObserver.unobserve(el);
+                enqueueClassify(el, selector);
+            }
+        }
+    }, {
+        // 300px lookahead: pre-classify just before the ad scrolls into view.
+        rootMargin: '300px',
+        threshold: 0,
+    });
+};
+
+const scheduleClassify = (el, selector) => {
+    if ( typeof IntersectionObserver === 'undefined' ) {
+        enqueueClassify(el, selector);
+        return;
+    }
+    initViewportObserver();
+    pendingViewport.set(el, selector);
+    viewportObserver.observe(el);
 };
 
 const MASK_BLOCK = `{
@@ -224,7 +262,7 @@ const tagAll = () => {
             if ( el.hasAttribute(ATTR) ) { continue; }
             if ( ollamaEnabled ) {
                 el.setAttribute(ATTR, LOADING_PHRASE);
-                enqueueClassify(el, selector);
+                scheduleClassify(el, selector);
             } else {
                 el.setAttribute(ATTR, randomPhrase());
             }

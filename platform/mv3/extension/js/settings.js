@@ -246,6 +246,24 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
     const cacheSizeEl = document.querySelector('#theyLiveCacheSize');
     const statusEl = document.querySelector('#theyLiveSaveStatus');
     const fieldsEl = document.querySelector('#theyLiveAiFields');
+    const statsEl = document.querySelector('#theyLiveStats');
+    const statLocalEl = document.querySelector('#theyLiveStatLocal');
+    const statCacheEl = document.querySelector('#theyLiveStatCache');
+    const statLlmEl = document.querySelector('#theyLiveStatLlm');
+
+    const refreshStats = () => {
+        sendMessage({ what: 'getTheyLiveStats' }).then(s => {
+            if ( !s || !statsEl ) { return; }
+            const total = s.local + s.cache + s.llm;
+            statsEl.style.display = total > 0 ? '' : 'none';
+            if ( statLocalEl ) { statLocalEl.textContent = s.local; }
+            if ( statCacheEl ) { statCacheEl.textContent = s.cache; }
+            if ( statLlmEl ) { statLlmEl.textContent = s.llm; }
+            if ( cacheSizeEl && s.cacheSize !== undefined ) {
+                cacheSizeEl.textContent = `${s.cacheSize} cached`;
+            }
+        });
+    };
 
     const refreshFieldVisibility = () => {
         if ( fieldsEl ) {
@@ -282,8 +300,9 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
 
     if ( clearCacheBtn ) {
         clearCacheBtn.addEventListener('click', () => {
-            sendMessage({ what: 'theyLiveClearCache' }).then(result => {
+            sendMessage({ what: 'theyLiveClearCache' }).then(() => {
                 if ( cacheSizeEl ) { cacheSizeEl.textContent = '0 cached'; }
+                if ( statsEl ) { statsEl.style.display = 'none'; }
             });
         });
     }
@@ -316,11 +335,10 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
         refreshFieldVisibility();
     });
 
-    sendMessage({ what: 'getTheyLiveCacheSize' }).then(result => {
-        if ( cacheSizeEl && result?.size !== undefined ) {
-            cacheSizeEl.textContent = `${result.size} cached`;
-        }
-    });
+    refreshStats();
+    // Refresh stats periodically while the settings page is open.
+    const statsInterval = setInterval(refreshStats, 5000);
+    window.addEventListener('unload', () => clearInterval(statsInterval), { once: true });
 }
 
 /******************************************************************************/

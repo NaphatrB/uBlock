@@ -336,6 +336,9 @@ const CACHE_MAX_SIZE = 1000;
 const classifyCache = new Map();
 let cacheLoaded = false;
 
+// Session-level classification stats (reset on service-worker restart).
+const classifyStats = { local: 0, cache: 0, llm: 0 };
+
 const cacheKey = (s) => {
     let h = 5381;
     for ( let i = 0; i < s.length; i++ ) {
@@ -390,6 +393,7 @@ async function theyLiveClassify(contexts) {
         const cached = classifyCache.get(k);
         if ( cached ) {
             results[i] = cached;
+            classifyStats.cache++;
         } else {
             misses.push({ i, k, ctx: contexts[i] });
         }
@@ -404,6 +408,7 @@ async function theyLiveClassify(contexts) {
         if ( local ) {
             results[miss.i] = local;
             classifyCache.set(miss.k, local);
+            classifyStats.local++;
             cacheUpdated = true;
         } else {
             llmMisses.push(miss);
@@ -466,6 +471,7 @@ async function theyLiveClassify(contexts) {
         results[llmMisses[j].i] = phrase;
         if ( phrase ) {
             classifyCache.set(llmMisses[j].k, phrase);
+            classifyStats.llm++;
             cacheUpdated = true;
         }
     }
@@ -601,6 +607,11 @@ function onMessage(request, sender, callback) {
     case 'getTheyLiveCacheSize': {
         loadCache().then(() => { callback({ size: classifyCache.size }); });
         return true;
+    }
+
+    case 'getTheyLiveStats': {
+        callback({ ...classifyStats, cacheSize: classifyCache.size });
+        return false;
     }
 
     case 'startCustomFilters':
