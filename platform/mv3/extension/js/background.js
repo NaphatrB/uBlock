@@ -275,7 +275,7 @@ const PROFILE_ANALYSIS_SYSTEM_PROMPT = [
     'Write 4-6 punchy bullet points. Focus on what the data *implies* (income bracket, life stage, purchase intent, segment value) rather than just restating numbers.',
     'Adopt a slightly sardonic tone, as if explaining the matrix to someone who just put on the glasses from the film "They Live".',
     'Keep your total response under 220 words. Use plain bullet points (• ), no headers.',
-].join(' ');
+].join('\n');
 
 // In-memory classification cache (context hash → phrase).
 // Persisted to chrome.storage.local under 'theyLiveCache'.
@@ -301,18 +301,26 @@ const customParamLog = [];
 const CUSTOM_PARAM_MAX = 50;
 
 // Phrases mapped to broker-side interest segment labels (shown in "Your Ad Profile").
+// Must cover every entry in THEY_LIVE_PHRASES (they-live-classify.js).
 const PHRASE_TRAITS = {
-    'CONSUME':                'Online shopper / retail interest',
-    'BUY':                    'In-market buyer (active purchase intent)',
-    'WORK':                   'Career / B2B / professional services',
-    'THIS IS YOUR GOD':       'Homeowner · financially active · insured',
-    'NO INDEPENDENT THOUGHT': 'News & current affairs reader',
-    'WATCH TV':               'Streaming / entertainment consumer',
-    'PLAY 8 HOURS':           'Gamer',
-    'SLEEP':                  'Wellness / mental health interest',
-    'CONFORM':                'Beauty & lifestyle consumer',
-    'OBEY':                   'General audience (low targeting precision)',
-    'SUBMIT':                 'Email / newsletter marketing target',
+    'CONSUME':                   'Online shopper / retail interest',
+    'BUY':                       'In-market buyer (active purchase intent)',
+    'WORK':                      'Career / B2B / professional services',
+    'WORK 8 HOURS':              'Job-seeker / recruitment target',
+    'THIS IS YOUR GOD':          'Homeowner · financially active · insured',
+    'NO INDEPENDENT THOUGHT':    'News & current affairs reader',
+    'WATCH TV':                  'Streaming / entertainment consumer',
+    'PLAY 8 HOURS':              'Gamer',
+    'SLEEP':                     'Wellness / mental health interest',
+    'CONFORM':                   'Beauty & lifestyle consumer',
+    'OBEY':                      'General audience (low targeting precision)',
+    'SUBMIT':                    'Email / newsletter marketing target',
+    'HONOR APATHY':              'Social media & influencer marketing target',
+    'NO IDEAS':                  'SaaS / business software prospect',
+    'NO IMAGINATION':            'Creative software / design tools prospect',
+    'MARRY AND REPRODUCE':       'Dating / family / relationship interest',
+    'DO NOT QUESTION AUTHORITY': 'Government / legal / civic content target',
+    'STAY ASLEEP':               'Passive / ambient media consumer',
 };
 
 const logClassification = (ctx, phrase, source) => {
