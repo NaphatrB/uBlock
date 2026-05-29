@@ -51,6 +51,90 @@ function renderPhraseTable(phraseFreq) {
     el.innerHTML = `<table style="border-collapse:collapse">${rows}</table>`;
 }
 
+function renderProfileSection(profile) {
+    const el = qs('#tlProfile');
+    if ( !el ) { return; }
+    if ( !profile || profile.totalAds === 0 ) {
+        el.innerHTML = '<span style="color:#aaa">No data yet — browse some pages with AI enabled.</span>';
+        return;
+    }
+
+    const score = profile.profileScore || 0;
+    const scoreBar = '█'.repeat(score) + '░'.repeat(10 - score);
+    const scoreDesc = score >= 8 ? 'Heavily targeted — you\'re in valuable segments'
+                    : score >= 5 ? 'Moderately targeted'
+                    : score >= 2 ? 'Light targeting'
+                    : 'Minimal targeting detected';
+
+    // Interests inferred from classified ad categories.
+    let interestsHtml = '';
+    if ( profile.interests?.length > 0 ) {
+        const maxCount = profile.interests[0].count;
+        const rows = profile.interests.map(({ trait, count, pct }) => {
+            const barW = maxCount > 0 ? Math.round(count / maxCount * 120) : 0;
+            return `<tr>
+                <td style="padding:3px 14px 3px 0;font-size:0.88em;white-space:nowrap">${trait}</td>
+                <td style="padding:3px 8px;text-align:right;font-variant-numeric:tabular-nums;font-size:0.85em;color:#555">${fmt(count)}</td>
+                <td style="padding:3px 8px;text-align:right;color:#999;font-size:0.82em">${pct}%</td>
+                <td style="padding:3px 0;width:130px;vertical-align:middle">
+                    <div style="height:8px;width:${barW}px;background:#174;border-radius:3px;opacity:0.8"></div>
+                </td>
+            </tr>`;
+        }).join('');
+        interestsHtml = `
+            <div style="margin-bottom:18px">
+                <div style="font-size:0.78em;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:6px;font-weight:600">Interests they've filed you under</div>
+                <table style="border-collapse:collapse">${rows}</table>
+            </div>`;
+    }
+
+    // Retargeting — advertisers seen across 2+ classification events.
+    let retargetHtml = '';
+    const retargeters = (profile.retargeters || []).filter(r => r.count >= 2);
+    if ( retargeters.length > 0 ) {
+        const items = retargeters.map(({ domain, count, pageCount }) =>
+            `<tr>
+                <td style="padding:3px 14px 3px 0;font-family:monospace;font-size:0.86em">${domain}</td>
+                <td style="padding:3px 10px;color:#c44;font-size:0.85em;white-space:nowrap">seen ${count}×</td>
+                <td style="padding:3px 0;color:#999;font-size:0.82em;white-space:nowrap">across ${pageCount} site${pageCount !== 1 ? 's' : ''}</td>
+            </tr>`
+        ).join('');
+        retargetHtml = `
+            <div style="margin-bottom:18px">
+                <div style="font-size:0.78em;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:6px;font-weight:600">Advertisers following you (retargeting pixels)</div>
+                <table style="border-collapse:collapse">${items}</table>
+            </div>`;
+    } else {
+        retargetHtml = `
+            <div style="margin-bottom:18px">
+                <div style="font-size:0.78em;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:4px;font-weight:600">Advertisers following you (retargeting pixels)</div>
+                <span style="color:#aaa;font-size:0.88em">None detected yet — browse more pages.</span>
+            </div>`;
+    }
+
+    // Raw Google/DoubleClick cust_params (direct targeting evidence).
+    let dcHtml = '';
+    if ( profile.customParams?.length > 0 ) {
+        const items = profile.customParams.slice(-5).reverse().map(({ page, params }) => {
+            const escaped = params.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<div style="font-size:0.82em;margin:3px 0;font-family:monospace;color:#555;word-break:break-all">[${page}] ${escaped}</div>`;
+        }).join('');
+        dcHtml = `
+            <div style="margin-bottom:18px">
+                <div style="font-size:0.78em;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:6px;font-weight:600">Raw ad-platform targeting data (Google/DoubleClick)</div>
+                ${items}
+            </div>`;
+    }
+
+    el.innerHTML = `
+        <div style="margin-bottom:18px">
+            <div style="font-size:0.78em;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:4px;font-weight:600">Profile intensity</div>
+            <div style="font-family:monospace;font-size:1.1em;letter-spacing:0.06em;color:#c44">${scoreBar}</div>
+            <div style="font-size:0.83em;color:#666;margin-top:3px">${score}/10 — ${scoreDesc}</div>
+        </div>
+        ${interestsHtml}${retargetHtml}${dcHtml}`;
+}
+
 function renderLogTable(log) {
     const el = qs('#tlLogTable');
     if ( !el ) { return; }
@@ -76,9 +160,10 @@ function renderLogTable(log) {
 /******************************************************************************/
 
 async function refresh() {
-    const [stats, logData] = await Promise.all([
+    const [stats, logData, profile] = await Promise.all([
         sendMessage({ what: 'getTheyLiveStats' }),
         sendMessage({ what: 'getTheyLiveLog' }),
+        sendMessage({ what: 'getTheyLiveProfile' }),
     ]);
 
     if ( stats ) {
@@ -91,6 +176,10 @@ async function refresh() {
         if ( llmEl )   { llmEl.textContent   = fmt(stats.llm); }
         if ( sizeEl )  { sizeEl.textContent  = fmt(stats.cacheSize); }
         renderPhraseTable(stats.phraseFreq);
+    }
+
+    if ( profile !== undefined ) {
+        renderProfileSection(profile);
     }
 
     if ( logData ) {

@@ -123,6 +123,40 @@ const extractAdContext = (el, selector) => {
 const classifyQueue = [];
 let classifyTimer = null;
 
+// Profile signals — fire-and-forget side channel for retargeting/DC param tracking.
+// These are sent independently so they don't block or delay classification.
+const profileBatch = [];
+let profileTimer = null;
+
+const flushProfileBatch = () => {
+    profileTimer = null;
+    const batch = profileBatch.splice(0);
+    if ( batch.length === 0 || typeof chrome === 'undefined' || !chrome.runtime?.sendMessage ) { return; }
+    for ( const sig of batch ) {
+        chrome.runtime.sendMessage({ what: 'theyLiveProfileSignal', ...sig }).catch(() => {});
+    }
+};
+
+const scheduleProfileSignal = (signal) => {
+    profileBatch.push(signal);
+    if ( !profileTimer ) { profileTimer = (self.setTimeout || setTimeout)(flushProfileBatch, 2000); }
+};
+
+// Extract Google/DoubleClick cust_params from ad slot iframes.
+// Returns decoded key-value string (e.g. "age=25-34&interests=travel") or null.
+const extractDcParams = (el) => {
+    for ( const iframe of el.querySelectorAll('iframe[src]') ) {
+        try {
+            const url = new URL(iframe.src);
+            if ( /doubleclick\.net|googlesyndication\.com|googleadservices\.com/.test(url.hostname) ) {
+                const cp = url.searchParams.get('cust_params');
+                if ( cp ) { return decodeURIComponent(cp).slice(0, 200); }
+            }
+        } catch { /* malformed URL */ }
+    }
+    return null;
+};
+
 const flushClassifyQueue = () => {
     classifyTimer = null;
     if ( classifyQueue.length === 0 ) { return; }
@@ -159,6 +193,11 @@ const flushClassifyQueue = () => {
 
 const enqueueClassify = (el, selector) => {
     classifyQueue.push({ el, context: extractAdContext(el, selector) });
+
+    // Fire-and-forget: send Google/DC targeting params to background if present.
+    const dcParams = extractDcParams(el);
+    if ( dcParams ) { scheduleProfileSignal({ page: location.hostname, dcParams }); }
+
     if ( classifyTimer !== null ) { return; }
     // 400ms debounce: long pages load many ads in bursts; batching more
     // together reduces total API calls with no perceptible UX cost.
