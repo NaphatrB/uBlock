@@ -127,13 +127,34 @@ self.theyLiveCss = function(selectorList) {
     // Hover: hide the overlay and reveal the original ad beneath.
     const hoverSelectors = selectors.map(s => `${s}:hover`).join(',\n');
     const hoverAfterSelectors = selectors.map(s => `${s}:hover::after`).join(',\n');
+    const hoverBeforeSelectors = selectors.map(s => `${s}:hover::before`).join(',\n');
+    const hoverChildSelectors = selectors.map(s => `${s}:hover *`).join(',\n');
     const hoverRule = `${hoverSelectors} {
-    background: transparent !important;
+    background: #f0f0f0 !important;
     border-color: rgba(0,0,0,0.2) !important;
     overflow: visible !important;
 }
 ${hoverAfterSelectors} {
     display: none !important;
+}
+${hoverBeforeSelectors} {
+    content: "original ad" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: rgba(0,0,0,0.25) !important;
+    font-family: sans-serif !important;
+    font-size: 11px !important;
+    font-weight: normal !important;
+    letter-spacing: 0.05em !important;
+    pointer-events: none !important;
+}
+${hoverChildSelectors} {
+    visibility: visible !important;
+    opacity: 1 !important;
 }`;
     return `${maskRule}\n${afterRule}\n${hoverRule}\n`;
 };
