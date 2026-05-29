@@ -240,6 +240,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
     const modelEl = document.querySelector('#theyLiveAiModel');
     const apiKeyEl = document.querySelector('#theyLiveAiApiKey');
     const thinkingEl = document.querySelector('#theyLiveThinking');
+    const forceLlmEl = document.querySelector('#theyLiveForceLlm');
     const saveBtn = document.querySelector('#theyLiveSave');
     const testBtn = document.querySelector('#theyLiveTest');
     const clearCacheBtn = document.querySelector('#theyLiveClearCache');
@@ -288,6 +289,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
                 aiModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
                 aiApiKey: apiKeyEl?.value || '',
                 aiThinking: thinkingEl?.checked || false,
+                aiForceLlm: forceLlmEl?.checked || false,
             }).then(result => {
                 testBtn.disabled = false;
                 if ( !statusEl ) { return; }
@@ -319,6 +321,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
                 aiModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
                 aiApiKey: apiKeyEl?.value || '',
                 aiThinking: thinkingEl?.checked || false,
+                aiForceLlm: forceLlmEl?.checked || false,
             }).then(() => {
                 if ( statusEl ) {
                     statusEl.textContent = '✓ Saved';
@@ -335,6 +338,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
         if ( modelEl ) { modelEl.value = data.aiModel || 'gemma4:31b-cloud'; }
         if ( apiKeyEl ) { apiKeyEl.value = data.aiApiKey || ''; }
         if ( thinkingEl ) { thinkingEl.checked = Boolean(data.aiThinking); }
+        if ( forceLlmEl ) { forceLlmEl.checked = Boolean(data.aiForceLlm); }
         refreshFieldVisibility();
     });
 

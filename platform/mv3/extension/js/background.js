@@ -367,12 +367,13 @@ const persistCache = () => {
 async function theyLiveClassify(contexts) {
     if ( contexts.length === 0 ) { return []; }
 
-    const [enabled, url, model, apiKey, thinking] = await Promise.all([
+    const [enabled, url, model, apiKey, thinking, forceLlm] = await Promise.all([
         localRead('theyLive.aiEnabled'),
         localRead('theyLive.aiBaseUrl'),
         localRead('theyLive.aiModel'),
         localRead('theyLive.aiApiKey'),
         localRead('theyLive.aiThinking'),
+        localRead('theyLive.aiForceLlm'),
     ]);
     if ( !enabled ) { return []; }
 
@@ -382,35 +383,41 @@ async function theyLiveClassify(contexts) {
     const aiModel = model || 'gemma4:31b-cloud';
 
     // Serve cache hits immediately; only call LLM for misses.
+    // When forceLlm is set, skip cache and local rules entirely.
     const results = new Array(contexts.length).fill('');
     const misses = [];
     for ( let i = 0; i < contexts.length; i++ ) {
-        const k = cacheKey(contexts[i]);
-        const cached = classifyCache.get(k);
-        if ( cached ) {
-            results[i] = cached;
-            logClassification(contexts[i], cached, 'cache');
-            classifyStats.cache++;
-        } else {
-            misses.push({ i, k, ctx: contexts[i] });
+        if ( !forceLlm ) {
+            const k = cacheKey(contexts[i]);
+            const cached = classifyCache.get(k);
+            if ( cached ) {
+                results[i] = cached;
+                logClassification(contexts[i], cached, 'cache');
+                classifyStats.cache++;
+                continue;
+            }
         }
+        misses.push({ i, k: cacheKey(contexts[i]), ctx: contexts[i] });
     }
     if ( misses.length === 0 ) { return results; }
 
     // Local fast-path: resolve obvious cases without touching the LLM.
+    // Skipped when forceLlm is enabled.
     let cacheUpdated = false;
     const llmMisses = [];
     for ( const miss of misses ) {
-        const local = localClassify(miss.ctx);
-        if ( local ) {
-            results[miss.i] = local;
-            classifyCache.set(miss.k, local);
-            logClassification(miss.ctx, local, 'local');
-            classifyStats.local++;
-            cacheUpdated = true;
-        } else {
-            llmMisses.push(miss);
+        if ( !forceLlm ) {
+            const local = localClassify(miss.ctx);
+            if ( local ) {
+                results[miss.i] = local;
+                classifyCache.set(miss.k, local);
+                logClassification(miss.ctx, local, 'local');
+                classifyStats.local++;
+                cacheUpdated = true;
+                continue;
+            }
         }
+        llmMisses.push(miss);
     }
     if ( llmMisses.length === 0 ) {
         if ( cacheUpdated ) { persistCache(); }
@@ -538,26 +545,29 @@ function onMessage(request, sender, callback) {
             localRead('theyLive.aiModel'),
             localRead('theyLive.aiApiKey'),
             localRead('theyLive.aiThinking'),
-        ]).then(([enabled, url, model, apiKey, thinking]) => {
+            localRead('theyLive.aiForceLlm'),
+        ]).then(([enabled, url, model, apiKey, thinking, forceLlm]) => {
             callback({
                 aiEnabled: Boolean(enabled),
                 aiBaseUrl: url || 'https://ollama.com',
                 aiModel: model || 'gemma4:31b-cloud',
                 aiApiKey: apiKey || '',
                 aiThinking: Boolean(thinking),
+                aiForceLlm: Boolean(forceLlm),
             });
         });
         return true;
     }
 
     case 'setTheyLiveSettings': {
-        const { aiEnabled, aiBaseUrl, aiModel, aiApiKey, aiThinking } = request;
+        const { aiEnabled, aiBaseUrl, aiModel, aiApiKey, aiThinking, aiForceLlm } = request;
         Promise.all([
             localWrite('theyLive.aiEnabled', Boolean(aiEnabled)),
             localWrite('theyLive.aiBaseUrl', aiBaseUrl || 'https://ollama.com'),
             localWrite('theyLive.aiModel', aiModel || 'gemma4:31b-cloud'),
             localWrite('theyLive.aiApiKey', aiApiKey || ''),
             localWrite('theyLive.aiThinking', Boolean(aiThinking)),
+            localWrite('theyLive.aiForceLlm', Boolean(aiForceLlm)),
         ]).then(() => { callback(); });
         return true;
     }

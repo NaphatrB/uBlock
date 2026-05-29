@@ -114,6 +114,7 @@
             <p><label>Model<br><input type="text" id="theyLiveAiModel" placeholder="gemma4:31b-cloud"></label></p>
             <p><label>API Key (required for cloud, leave empty for local)<br><input type="password" id="theyLiveAiApiKey" placeholder="sk-… or ollama_…"></label></p>
             <p><label><span class="input checkbox"><input type="checkbox" id="theyLiveThinking"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>Deep thinking (slower, higher quality — only for models that support it)</label></p>
+            <p><label><span class="input checkbox"><input type="checkbox" id="theyLiveForceLlm"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>Force LLM for all ads (skip local rules &amp; cache — slower but always uses the AI)</label></p>
             <p>
                 <button type="button" id="theyLiveSave" class="dontshrink">Save</button>
                 <button type="button" id="theyLiveTest" class="dontshrink">Test connection</button>
