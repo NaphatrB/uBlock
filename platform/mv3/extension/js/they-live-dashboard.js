@@ -132,7 +132,40 @@ function renderProfileSection(profile) {
             <div style="font-family:monospace;font-size:1.1em;letter-spacing:0.06em;color:#c44">${scoreBar}</div>
             <div style="font-size:0.83em;color:#666;margin-top:3px">${score}/10 — ${scoreDesc}</div>
         </div>
-        ${interestsHtml}${retargetHtml}${dcHtml}`;
+        ${interestsHtml}${retargetHtml}${dcHtml}
+        <div style="margin-top:8px">
+            <button type="button" id="tlAnalyseBtn" class="dontshrink">🤖 Analyse with AI</button>
+            <span style="font-size:0.82em;color:#aaa;margin-left:8px">Let the LLM read your profile and explain what it means</span>
+        </div>
+        <div id="tlProfileAnalysis" style="margin-top:12px"></div>`;
+
+    qs('#tlAnalyseBtn')?.addEventListener('click', analyseProfile);
+}
+
+async function analyseProfile() {
+    const btn = qs('#tlAnalyseBtn');
+    const out = qs('#tlProfileAnalysis');
+    if ( !out ) { return; }
+
+    if ( btn ) { btn.disabled = true; btn.textContent = '⏳ Analysing…'; }
+    out.innerHTML = '<span style="color:#aaa;font-size:0.88em">Sending profile to LLM…</span>';
+
+    const result = await sendMessage({ what: 'theyLiveAnalyseProfile' });
+
+    if ( btn ) { btn.disabled = false; btn.textContent = '🤖 Analyse with AI'; }
+
+    if ( result?.error ) {
+        out.innerHTML = `<span style="color:#c44;font-size:0.88em">⚠ ${result.error}</span>`;
+        return;
+    }
+
+    if ( result?.analysis ) {
+        // Render the LLM's bullet-point analysis in a styled box.
+        const escaped = result.analysis.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const lines = escaped.split('\n').filter(l => l.trim());
+        const html = lines.map(l => `<div style="margin:5px 0;font-size:0.88em;line-height:1.5">${l}</div>`).join('');
+        out.innerHTML = `<div style="background:#f7f7f7;border-left:3px solid #c44;padding:12px 16px;border-radius:0 4px 4px 0;margin-top:4px">${html}</div>`;
+    }
 }
 
 function renderLogTable(log) {

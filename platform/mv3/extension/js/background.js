@@ -266,6 +266,17 @@ const CLASSIFY_SYSTEM_PROMPT = [
     'Rules: exact label text only, one per line, no extra text, no numbering.',
 ].join('\n');
 
+// System prompt for AI profile analysis — separate from per-ad classification.
+// Asks the LLM to interpret aggregated session data as a data-broker profile.
+const PROFILE_ANALYSIS_SYSTEM_PROMPT = [
+    'You are an expert in programmatic advertising, real-time bidding, and data broker audience profiles.',
+    'A browser extension has collected ad targeting data from a real browsing session.',
+    'Analyse the data and explain — specifically and bluntly — what the advertising industry believes about this person.',
+    'Write 4-6 punchy bullet points. Focus on what the data *implies* (income bracket, life stage, purchase intent, segment value) rather than just restating numbers.',
+    'Adopt a slightly sardonic tone, as if explaining the matrix to someone who just put on the glasses from the film "They Live".',
+    'Keep your total response under 220 words. Use plain bullet points (• ), no headers.',
+].join(' ');
+
 // In-memory classification cache (context hash → phrase).
 // Persisted to chrome.storage.local under 'theyLiveCache'.
 const CACHE_MAX_SIZE = 1000;
@@ -633,6 +644,101 @@ function onMessage(request, sender, callback) {
 
         callback({ interests, retargeters, customParams: customParamLog.slice(), profileScore, totalAds });
         return false;
+    }
+
+    case 'theyLiveAnalyseProfile': {
+        // Use the configured LLM to generate a natural-language profile analysis.
+        (async () => {
+            const [enabled, url, model, apiKey, thinking] = await Promise.all([
+                localRead('theyLive.aiEnabled'),
+                localRead('theyLive.aiBaseUrl'),
+                localRead('theyLive.aiModel'),
+                localRead('theyLive.aiApiKey'),
+                localRead('theyLive.aiThinking'),
+            ]);
+            if ( !enabled ) {
+                callback({ error: 'AI is not enabled. Configure it in the Settings tab.' });
+                return;
+            }
+
+            const totalAds = Object.values(phraseFreq).reduce((n, c) => n + c, 0);
+            if ( totalAds === 0 ) {
+                callback({ error: 'No ad data yet. Browse some pages first.' });
+                return;
+            }
+
+            // Build a structured plaintext summary of the profile data.
+            const interests = Object.entries(phraseFreq)
+                .filter(([p]) => PHRASE_TRAITS[p])
+                .map(([p, count]) => `- ${PHRASE_TRAITS[p]}: ${count} ads (${Math.round(count / totalAds * 100)}%)`)
+                .join('\n');
+
+            const retargeters = [...advertiserFreq.entries()]
+                .map(([domain, e]) => ({ domain, count: e.count, pageCount: e.pages.size }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+            const retargetLines = retargeters.length > 0
+                ? retargeters.map(r => `- ${r.domain}: seen ${r.count}× across ${r.pageCount} site(s)`).join('\n')
+                : '- None detected this session';
+
+            const dcLines = customParamLog.length > 0
+                ? customParamLog.slice(-5).map(c => `- [${c.page}] ${c.params}`).join('\n')
+                : '';
+
+            const userContent = [
+                'AD CATEGORIES SEEN (by frequency):',
+                interests,
+                '',
+                'RETARGETING TRACKERS (advertisers following across multiple sites):',
+                retargetLines,
+                ...(dcLines ? ['', 'RAW TARGETING DATA (decoded from Google/DoubleClick):', dcLines] : []),
+                '',
+                'What does this targeting data reveal about how the advertising industry has profiled this user?',
+            ].join('\n');
+
+            const baseUrl = (url || 'https://ollama.com').replace(/\/$/, '');
+            const aiModel = model || 'gemma4:31b-cloud';
+            const headers = { 'Content-Type': 'application/json' };
+            if ( apiKey ) { headers['Authorization'] = `Bearer ${apiKey}`; }
+
+            let response;
+            try {
+                response = await fetch(`${baseUrl}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        model: aiModel,
+                        messages: [
+                            { role: 'system', content: PROFILE_ANALYSIS_SYSTEM_PROMPT },
+                            { role: 'user', content: userContent },
+                        ],
+                        stream: false,
+                        ...(thinking ? { think: true } : {}),
+                    }),
+                    signal: AbortSignal.timeout(30000),
+                });
+            } catch(reason) {
+                callback({ error: `LLM request failed: ${reason}` });
+                return;
+            }
+
+            if ( !response.ok ) {
+                callback({ error: `LLM returned HTTP ${response.status}` });
+                return;
+            }
+
+            let data;
+            try { data = await response.json(); } catch(reason) {
+                callback({ error: `LLM response parse failed: ${reason}` });
+                return;
+            }
+
+            let analysis = data.choices?.[0]?.message?.content || '';
+            analysis = analysis.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+            callback({ analysis });
+        })();
+        return true; // async
     }
 
     case 'startCustomFilters':
