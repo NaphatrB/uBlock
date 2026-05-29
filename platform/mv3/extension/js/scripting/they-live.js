@@ -28,8 +28,17 @@ const PHRASES = [
 ];
 
 const ATTR = 'data-ubol-they-live';
+const LOADING_PHRASE = 'ANALYZING';
 
 const randomPhrase = () => PHRASES[Math.floor(Math.random() * PHRASES.length)];
+
+// Fetch ollamaEnabled once at startup; default false until resolved.
+let ollamaEnabled = false;
+if ( typeof chrome !== 'undefined' && chrome.runtime?.sendMessage ) {
+    chrome.runtime.sendMessage({ what: 'getTheyLiveSettings' })
+        .then(s => { if ( s?.ollamaEnabled ) { ollamaEnabled = true; } })
+        .catch(() => {});
+}
 
 // Extract text/metadata from an ad element for LLM classification.
 const extractAdContext = (el) => {
@@ -62,13 +71,29 @@ const flushClassifyQueue = () => {
         what: 'theyLiveClassify',
         contexts: batch.map(b => b.context),
     }).then(phrases => {
-        if ( !Array.isArray(phrases) ) { return; }
+        if ( !Array.isArray(phrases) ) {
+            // Full response failure — fall back to random for any loading elements.
+            batch.forEach(b => {
+                if ( b.el.isConnected ) {
+                    b.el.setAttribute(ATTR, randomPhrase());
+                }
+            });
+            return;
+        }
         phrases.forEach((phrase, i) => {
-            if ( phrase && batch[i]?.el.isConnected ) {
-                batch[i].el.setAttribute(ATTR, phrase);
+            if ( batch[i]?.el.isConnected ) {
+                // Use LLM phrase if present; fall back to random if empty.
+                batch[i].el.setAttribute(ATTR, phrase || randomPhrase());
             }
         });
-    }).catch(() => { /* extension context may be invalidated on page unload */ });
+    }).catch(() => {
+        // Extension context invalidated (page unload) or LLM error.
+        batch.forEach(b => {
+            if ( b.el.isConnected ) {
+                b.el.setAttribute(ATTR, randomPhrase());
+            }
+        });
+    });
 };
 
 const enqueueClassify = (el) => {
@@ -179,8 +204,12 @@ const tagAll = () => {
         }
         for ( const el of matched ) {
             if ( el.hasAttribute(ATTR) ) { continue; }
-            el.setAttribute(ATTR, randomPhrase());
-            enqueueClassify(el);
+            if ( ollamaEnabled ) {
+                el.setAttribute(ATTR, LOADING_PHRASE);
+                enqueueClassify(el);
+            } else {
+                el.setAttribute(ATTR, randomPhrase());
+            }
             tagged += 1;
         }
     }
