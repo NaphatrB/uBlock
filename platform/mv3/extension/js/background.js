@@ -225,6 +225,8 @@ function setDeveloperMode(state) {
 const THEY_LIVE_PHRASES = [
     'OBEY', 'CONSUME', 'WATCH TV', 'SLEEP', 'NO INDEPENDENT THOUGHT',
     'SUBMIT', 'CONFORM', 'STAY ASLEEP', 'BUY', 'WORK', 'DO NOT QUESTION AUTHORITY',
+    'NO IMAGINATION', 'MARRY AND REPRODUCE', 'THIS IS YOUR GOD',
+    'HONOR APATHY', 'NO IDEAS', 'WORK 8 HOURS', 'PLAY 8 HOURS',
 ];
 
 // ---------------------------------------------------------------------------
@@ -248,13 +250,13 @@ const DOMAIN_RULES = [
     ['peacock', 'WATCH TV'], ['appletv', 'WATCH TV'], ['paramountplus', 'WATCH TV'],
     ['crunchyroll', 'WATCH TV'], ['funimation', 'WATCH TV'],
     // Finance / insurance
-    ['chase', 'WORK'], ['fidelity', 'WORK'], ['vanguard', 'WORK'],
-    ['schwab', 'WORK'], ['wellsfargo', 'WORK'], ['bankofamerica', 'WORK'],
-    ['citibank', 'WORK'], ['capitalone', 'WORK'], ['americanexpress', 'WORK'],
+    ['chase', 'THIS IS YOUR GOD'], ['fidelity', 'THIS IS YOUR GOD'], ['vanguard', 'THIS IS YOUR GOD'],
+    ['schwab', 'THIS IS YOUR GOD'], ['wellsfargo', 'THIS IS YOUR GOD'], ['bankofamerica', 'THIS IS YOUR GOD'],
+    ['citibank', 'THIS IS YOUR GOD'], ['capitalone', 'THIS IS YOUR GOD'], ['americanexpress', 'THIS IS YOUR GOD'],
     ['progressive', 'WORK'], ['geico', 'WORK'], ['allstate', 'WORK'],
-    ['statefarm', 'WORK'], ['creditkarma', 'WORK'], ['experian', 'WORK'],
-    ['equifax', 'WORK'], ['lending', 'WORK'], ['coinbase', 'WORK'],
-    ['binance', 'WORK'], ['robinhood', 'WORK'],
+    ['statefarm', 'WORK'], ['creditkarma', 'THIS IS YOUR GOD'], ['experian', 'THIS IS YOUR GOD'],
+    ['equifax', 'THIS IS YOUR GOD'], ['lending', 'THIS IS YOUR GOD'], ['coinbase', 'THIS IS YOUR GOD'],
+    ['binance', 'THIS IS YOUR GOD'], ['robinhood', 'THIS IS YOUR GOD'],
     // News / media
     ['cnn', 'NO INDEPENDENT THOUGHT'], ['foxnews', 'NO INDEPENDENT THOUGHT'],
     ['nytimes', 'NO INDEPENDENT THOUGHT'], ['washingtonpost', 'NO INDEPENDENT THOUGHT'],
@@ -264,26 +266,38 @@ const DOMAIN_RULES = [
     ['breitbart', 'NO INDEPENDENT THOUGHT'], ['politico', 'NO INDEPENDENT THOUGHT'],
     ['thehill', 'NO INDEPENDENT THOUGHT'], ['axios', 'NO INDEPENDENT THOUGHT'],
     // Social / tech
-    ['facebook', 'CONFORM'], ['instagram', 'CONFORM'], ['twitter', 'CONFORM'],
-    ['x.com', 'CONFORM'], ['tiktok', 'CONFORM'], ['snapchat', 'CONFORM'],
-    ['linkedin', 'SUBMIT'], ['pinterest', 'CONFORM'],
+    ['facebook', 'HONOR APATHY'], ['instagram', 'HONOR APATHY'], ['twitter', 'HONOR APATHY'],
+    ['x.com', 'HONOR APATHY'], ['tiktok', 'HONOR APATHY'], ['snapchat', 'HONOR APATHY'],
+    ['linkedin', 'WORK 8 HOURS'], ['pinterest', 'CONFORM'],
     // Gaming
-    ['steampowered', 'SLEEP'], ['epicgames', 'SLEEP'], ['xbox', 'SLEEP'],
-    ['playstation', 'SLEEP'], ['nintendo', 'SLEEP'], ['roblox', 'SLEEP'],
-    ['ea.com', 'SLEEP'], ['ubisoft', 'SLEEP'], ['blizzard', 'SLEEP'],
+    ['steampowered', 'PLAY 8 HOURS'], ['epicgames', 'PLAY 8 HOURS'], ['xbox', 'PLAY 8 HOURS'],
+    ['playstation', 'PLAY 8 HOURS'], ['nintendo', 'PLAY 8 HOURS'], ['roblox', 'PLAY 8 HOURS'],
+    ['ea.com', 'PLAY 8 HOURS'], ['ubisoft', 'PLAY 8 HOURS'], ['blizzard', 'PLAY 8 HOURS'],
+    // Dating / reproduction
+    ['tinder', 'MARRY AND REPRODUCE'], ['bumble', 'MARRY AND REPRODUCE'],
+    ['match', 'MARRY AND REPRODUCE'], ['hinge', 'MARRY AND REPRODUCE'],
+    ['eharmony', 'MARRY AND REPRODUCE'],
+    // Jobs / recruitment
+    ['indeed', 'WORK 8 HOURS'], ['glassdoor', 'WORK 8 HOURS'], ['monster', 'WORK 8 HOURS'],
+    ['ziprecruiter', 'WORK 8 HOURS'], ['upwork', 'WORK 8 HOURS'],
 ];
 
 // Regex rules applied to the selector string first, then full context.
 // Ordered from most specific to least.
 const KEYWORD_RULES = [
     [/\bvideo\b|\bstream\b|\bwatch\b|\bpodcast\b|\bplayer\b/i, 'WATCH TV'],
-    [/\bgam(?:e|ing)\b|\besport\b/i, 'SLEEP'],
+    [/\bgam(?:e|ing)\b|\besport\b/i, 'PLAY 8 HOURS'],
     [/\bshop\b|\bproduct\b|\bcart\b|\bcommerce\b|\bpurchase\b/i, 'BUY'],
-    [/\bfinance\b|\bbank(?:ing)?\b|\binvest\b|\bloan\b|\binsur/i, 'WORK'],
+    [/\bfinance\b|\bbank(?:ing)?\b|\binvest\b|\bloan\b|\binsur/i, 'THIS IS YOUR GOD'],
+    [/\bcrypto\b|\bcoin\b|\btoken\b|\bnft\b|\bweb3\b/i, 'THIS IS YOUR GOD'],
+    [/\bdat(?:e|ing)\b|\bmatrimony\b|\bwedding\b|\brelationship\b/i, 'MARRY AND REPRODUCE'],
+    [/\bpregnancy\b|\bbaby\b|\bparenting\b|\bfertility\b/i, 'MARRY AND REPRODUCE'],
+    [/\bjob\b|\bcareer\b|\brecruit\b|\bhiring\b|\bemploy\b/i, 'WORK 8 HOURS'],
     [/\bnews\b|\bbreaking\b|\bpoliti(?:cs|cal)\b|\bheadline\b/i, 'NO INDEPENDENT THOUGHT'],
-    [/\bsocial\b|\bfollow\b|\bcommunity\b/i, 'CONFORM'],
+    [/\bsocial\b|\bfollow\b|\bcommunity\b/i, 'HONOR APATHY'],
     [/\bsponsor(?:ed)?\b|\bpromot(?:ed|ion)\b|\badvert(?:is)?/i, 'OBEY'],
     [/\bleaderboard\b|\bskyscraper\b|\bbillboard\b|\bbanner\b/i, 'OBEY'],
+    [/\bsaas\b|\bapp\b|\bsoftware\b|\bplatform\b|\bai\b/i, 'NO IDEAS'],
 ];
 
 // Parse a context string; return a phrase or null for "needs LLM".
@@ -325,9 +339,11 @@ const CLASSIFY_SYSTEM_PROMPT =
     `Ad classifier for satirical labelling. Output one label per ad, same order.\n` +
     `Labels: ${THEY_LIVE_PHRASES.join('|')}\n` +
     `Signals: [page:hostname] [sel:css-selector] [link:dest-hostname] visible-text [img-alt]\n` +
-    `retail/shop→CONSUME/BUY; stream/game/video→WATCH TV/SLEEP; ` +
-    `finance/bank/insurance→WORK/OBEY; news/politics/media→NO INDEPENDENT THOUGHT; ` +
-    `social/tech/app→CONFORM/SUBMIT; generic ad→OBEY\n` +
+    `retail/shop→CONSUME/BUY; stream/music→WATCH TV; game/entertainment→PLAY 8 HOURS; ` +
+    `finance/bank/crypto→THIS IS YOUR GOD; insurance/job→WORK/WORK 8 HOURS; ` +
+    `news/politics→NO INDEPENDENT THOUGHT; social/influencer→HONOR APATHY; ` +
+    `dating/wedding/baby→MARRY AND REPRODUCE; saas/app/tech→NO IDEAS/NO IMAGINATION; ` +
+    `generic/other→OBEY\n` +
     `Rules: exact label text only, one per line, no extra text, no numbering.`;
 
 // In-memory classification cache (context hash → phrase).

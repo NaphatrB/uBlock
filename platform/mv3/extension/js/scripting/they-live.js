@@ -25,6 +25,13 @@ const PHRASES = [
     'BUY',
     'WORK',
     'DO NOT QUESTION AUTHORITY',
+    'NO IMAGINATION',
+    'MARRY AND REPRODUCE',
+    'THIS IS YOUR GOD',
+    'HONOR APATHY',
+    'NO IDEAS',
+    'WORK 8 HOURS',
+    'PLAY 8 HOURS',
 ];
 
 const ATTR = 'data-ubol-they-live';
