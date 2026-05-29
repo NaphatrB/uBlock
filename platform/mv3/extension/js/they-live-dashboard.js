@@ -154,17 +154,25 @@ async function analyseProfile() {
 
     if ( btn ) { btn.disabled = false; btn.textContent = '🤖 Analyse with AI'; }
 
-    if ( result?.error ) {
+    if ( !result ) {
+        out.innerHTML = `<span style="color:#c44;font-size:0.88em">⚠ No response from extension background — try reloading the dashboard.</span>`;
+        return;
+    }
+
+    if ( result.error ) {
         out.innerHTML = `<span style="color:#c44;font-size:0.88em">⚠ ${result.error}</span>`;
         return;
     }
 
-    if ( result?.analysis ) {
+    const analysis = result.analysis || '';
+    if ( analysis ) {
         // Render the LLM's bullet-point analysis in a styled box.
-        const escaped = result.analysis.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const escaped = analysis.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const lines = escaped.split('\n').filter(l => l.trim());
         const html = lines.map(l => `<div style="margin:5px 0;font-size:0.88em;line-height:1.5">${l}</div>`).join('');
         out.innerHTML = `<div style="background:#f7f7f7;border-left:3px solid #c44;padding:12px 16px;border-radius:0 4px 4px 0;margin-top:4px">${html}</div>`;
+    } else {
+        out.innerHTML = `<span style="color:#c44;font-size:0.88em">⚠ LLM returned an empty response — try again.</span>`;
     }
 }
 

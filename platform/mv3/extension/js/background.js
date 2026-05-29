@@ -679,7 +679,7 @@ function onMessage(request, sender, callback) {
             const interests = Object.entries(phraseFreq)
                 .filter(([p]) => PHRASE_TRAITS[p])
                 .map(([p, count]) => `- ${PHRASE_TRAITS[p]}: ${count} ads (${Math.round(count / totalAds * 100)}%)`)
-                .join('\n');
+                .join('\n') || '- (phrases seen but no category mapping available)';
 
             const retargeters = [...advertiserFreq.entries()]
                 .map(([domain, e]) => ({ domain, count: e.count, pageCount: e.pages.size }))
@@ -724,7 +724,7 @@ function onMessage(request, sender, callback) {
                         stream: false,
                         ...(thinking ? { think: true } : {}),
                     }),
-                    signal: AbortSignal.timeout(30000),
+                    signal: AbortSignal.timeout(60000),
                 });
             } catch(reason) {
                 callback({ error: `LLM request failed: ${reason}` });
