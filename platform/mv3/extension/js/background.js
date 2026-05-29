@@ -238,8 +238,8 @@ async function theyLiveClassify(contexts) {
     ]);
     if ( !enabled ) { return []; }
 
-    const ollamaUrl = (url || 'http://localhost:11434').replace(/\/$/, '');
-    const ollamaModel = model || 'llama3.2';
+    const ollamaUrl = (url || 'https://ollama.com').replace(/\/$/, '');
+    const ollamaModel = model || 'gemma4:31b-cloud';
 
     const adLines = contexts.map((ctx, i) => `Ad ${i + 1}: ${ctx}`).join('\n');
     const phraseList = THEY_LIVE_PHRASES.join(', ');
@@ -361,8 +361,8 @@ function onMessage(request, sender, callback) {
         ]).then(([enabled, url, model, apiKey]) => {
             callback({
                 ollamaEnabled: Boolean(enabled),
-                ollamaUrl: url || 'http://localhost:11434',
-                ollamaModel: model || 'llama3.2',
+                ollamaUrl: url || 'https://ollama.com',
+                ollamaModel: model || 'gemma4:31b-cloud',
                 ollamaApiKey: apiKey || '',
             });
         });
@@ -373,8 +373,8 @@ function onMessage(request, sender, callback) {
         const { ollamaEnabled, ollamaUrl, ollamaModel, ollamaApiKey } = request;
         Promise.all([
             localWrite('theyLive.ollamaEnabled', Boolean(ollamaEnabled)),
-            localWrite('theyLive.ollamaUrl', ollamaUrl || 'http://localhost:11434'),
-            localWrite('theyLive.ollamaModel', ollamaModel || 'llama3.2'),
+            localWrite('theyLive.ollamaUrl', ollamaUrl || 'https://ollama.com'),
+            localWrite('theyLive.ollamaModel', ollamaModel || 'gemma4:31b-cloud'),
             localWrite('theyLive.ollamaApiKey', ollamaApiKey || ''),
         ]).then(() => { callback(); });
         return true;

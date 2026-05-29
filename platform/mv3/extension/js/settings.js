@@ -258,8 +258,8 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
             sendMessage({
                 what: 'setTheyLiveSettings',
                 ollamaEnabled: enabledEl?.checked || false,
-                ollamaUrl: urlEl?.value.trim() || 'http://localhost:11434',
-                ollamaModel: modelEl?.value.trim() || 'llama3.2',
+                ollamaUrl: urlEl?.value.trim() || 'https://ollama.com',
+                ollamaModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
                 ollamaApiKey: apiKeyEl?.value || '',
             }).then(() => {
                 if ( statusEl ) {
@@ -273,8 +273,8 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
     sendMessage({ what: 'getTheyLiveSettings' }).then(data => {
         if ( !data ) { return; }
         if ( enabledEl ) { enabledEl.checked = Boolean(data.ollamaEnabled); }
-        if ( urlEl ) { urlEl.value = data.ollamaUrl || 'http://localhost:11434'; }
-        if ( modelEl ) { modelEl.value = data.ollamaModel || 'llama3.2'; }
+        if ( urlEl ) { urlEl.value = data.ollamaUrl || 'https://ollama.com'; }
+        if ( modelEl ) { modelEl.value = data.ollamaModel || 'gemma4:31b-cloud'; }
         if ( apiKeyEl ) { apiKeyEl.value = data.ollamaApiKey || ''; }
         refreshFieldVisibility();
     });
