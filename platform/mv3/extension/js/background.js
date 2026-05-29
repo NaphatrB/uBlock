@@ -237,17 +237,33 @@ function setDeveloperMode(state) {
 // ---------------------------------------------------------------------------
 // System prompt is static — sent once per request; providers like OpenAI
 // cache it so it costs fewer tokens on repeated calls.
-const CLASSIFY_SYSTEM_PROMPT =
-    `Ad classifier for satirical labelling. Output one label per ad, same order.\n` +
-    `Labels: ${THEY_LIVE_PHRASES.join('|')}\n` +
-    `Signals: [page:hostname] [sel:css-selector] [link:dest-hostname] visible-text [img-alt]\n` +
-    `retail/shop→CONSUME/BUY; streaming-service(netflix/hulu/spotify etc)→WATCH TV; game→PLAY 8 HOURS; ` +
-    `finance/bank/crypto/insurance→THIS IS YOUR GOD; job/recruitment→WORK 8 HOURS; ` +
-    `news/politics→NO INDEPENDENT THOUGHT; social/influencer→HONOR APATHY; ` +
-    `dating/wedding/baby→MARRY AND REPRODUCE; saas/tech/software→NO IDEAS/NO IMAGINATION; ` +
-    `generic/other→OBEY. ` +
-    `IMPORTANT: video/player/banner/player are ad FORMAT not category — classify by the advertised product, not the ad format.\n` +
-    `Rules: exact label text only, one per line, no extra text, no numbering.`;
+// v4: numbered priority rules so category always beats transactional language;
+//     fixes NO IDEAS/NO IMAGINATION invalid label bug; adds CONFORM/SLEEP/SUBMIT/WORK coverage.
+const CLASSIFY_SYSTEM_PROMPT = [
+    'Ad classifier for satirical labelling. Output one label per ad, same order.',
+    `Labels: ${THEY_LIVE_PHRASES.join('|')}`,
+    'Signals: [page:hostname] [sel:css-selector] [link:dest-hostname] visible-text [img-alt]',
+    'Apply the FIRST matching rule (category beats transactional language):',
+    '1. streaming/music(netflix/spotify/youtube/disney+/hulu/twitch)->WATCH TV',
+    '2. game/gaming/esports/console(steam/epic/playstation/xbox/nintendo)->PLAY 8 HOURS',
+    '3. finance/bank/crypto/insurance/investment->THIS IS YOUR GOD',
+    '4. job/recruitment/career/hiring->WORK 8 HOURS',
+    '5. news/media/politics/journalism->NO INDEPENDENT THOUGHT',
+    '6. dating/wedding/family/baby->MARRY AND REPRODUCE',
+    '7. creative-software/design-tools(adobe/canva/figma)->NO IMAGINATION',
+    '8. saas/business-software/AI-tools(slack/notion/salesforce)->NO IDEAS',
+    '9. HR/productivity/enterprise-tools->WORK',
+    '10. government/authority/legal->DO NOT QUESTION AUTHORITY',
+    '11. social-media/influencer/viral->HONOR APATHY',
+    '12. beauty/wellness/skincare/cosmetics->CONFORM',
+    '13. sleep/meditation/calm/relaxation->SLEEP',
+    '14. newsletter/email-form/sign-up->SUBMIT',
+    '15. retail/brand/lifestyle(amazon/nike/walmart/target/apple/clothing)->CONSUME',
+    '16. named-product-at-a-price("X for $Y", specific item + explicit price/discount)->BUY',
+    '17. vague/unknown/unclear->OBEY',
+    'CRITICAL: video/player/banner/pre-roll/mid-roll are ad FORMATS. Classify the PRODUCT being advertised.',
+    'Rules: exact label text only, one per line, no extra text, no numbering.',
+].join('\n');
 
 // In-memory classification cache (context hash → phrase).
 // Persisted to chrome.storage.local under 'theyLiveCache'.
