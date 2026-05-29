@@ -124,7 +124,18 @@ self.theyLiveCss = function(selectorList) {
     const afterRule = `${afterSelectors} {
     content: attr(${ATTR});${AFTER_STYLE}
 }`;
-    return `${maskRule}\n${afterRule}\n`;
+    // Hover: hide the overlay and reveal the original ad beneath.
+    const hoverSelectors = selectors.map(s => `${s}:hover`).join(',\n');
+    const hoverAfterSelectors = selectors.map(s => `${s}:hover::after`).join(',\n');
+    const hoverRule = `${hoverSelectors} {
+    background: transparent !important;
+    border-color: rgba(0,0,0,0.2) !important;
+    overflow: visible !important;
+}
+${hoverAfterSelectors} {
+    display: none !important;
+}`;
+    return `${maskRule}\n${afterRule}\n${hoverRule}\n`;
 };
 
 // Accumulate every selector we've ever been asked to tag. A single
