@@ -227,16 +227,108 @@ const THEY_LIVE_PHRASES = [
     'SUBMIT', 'CONFORM', 'STAY ASLEEP', 'BUY', 'WORK', 'DO NOT QUESTION AUTHORITY',
 ];
 
+// ---------------------------------------------------------------------------
+// Local classification fast-path
+// Checked before hitting the LLM. Resolves ~60-80% of ads with zero API cost.
+// ---------------------------------------------------------------------------
+
+// Partial hostname → phrase. Checked against [link:…] first, then [page:…].
+const DOMAIN_RULES = [
+    // Retail / shopping
+    ['amazon', 'CONSUME'], ['ebay', 'CONSUME'], ['etsy', 'CONSUME'],
+    ['walmart', 'CONSUME'], ['bestbuy', 'BUY'], ['target', 'CONSUME'],
+    ['shopify', 'BUY'], ['aliexpress', 'CONSUME'], ['wish', 'BUY'],
+    ['wayfair', 'CONSUME'], ['homedepot', 'BUY'], ['costco', 'CONSUME'],
+    ['ikea', 'CONSUME'], ['zara', 'CONSUME'], ['nike', 'BUY'],
+    ['adidas', 'BUY'], ['macys', 'CONSUME'], ['nordstrom', 'CONSUME'],
+    // Streaming / entertainment
+    ['netflix', 'WATCH TV'], ['youtube', 'WATCH TV'], ['twitch', 'WATCH TV'],
+    ['spotify', 'WATCH TV'], ['disneyplus', 'WATCH TV'], ['disney', 'WATCH TV'],
+    ['hulu', 'WATCH TV'], ['primevideo', 'WATCH TV'], ['hbomax', 'WATCH TV'],
+    ['peacock', 'WATCH TV'], ['appletv', 'WATCH TV'], ['paramountplus', 'WATCH TV'],
+    ['crunchyroll', 'WATCH TV'], ['funimation', 'WATCH TV'],
+    // Finance / insurance
+    ['chase', 'WORK'], ['fidelity', 'WORK'], ['vanguard', 'WORK'],
+    ['schwab', 'WORK'], ['wellsfargo', 'WORK'], ['bankofamerica', 'WORK'],
+    ['citibank', 'WORK'], ['capitalone', 'WORK'], ['americanexpress', 'WORK'],
+    ['progressive', 'WORK'], ['geico', 'WORK'], ['allstate', 'WORK'],
+    ['statefarm', 'WORK'], ['creditkarma', 'WORK'], ['experian', 'WORK'],
+    ['equifax', 'WORK'], ['lending', 'WORK'], ['coinbase', 'WORK'],
+    ['binance', 'WORK'], ['robinhood', 'WORK'],
+    // News / media
+    ['cnn', 'NO INDEPENDENT THOUGHT'], ['foxnews', 'NO INDEPENDENT THOUGHT'],
+    ['nytimes', 'NO INDEPENDENT THOUGHT'], ['washingtonpost', 'NO INDEPENDENT THOUGHT'],
+    ['bbc', 'NO INDEPENDENT THOUGHT'], ['theguardian', 'NO INDEPENDENT THOUGHT'],
+    ['reuters', 'NO INDEPENDENT THOUGHT'], ['apnews', 'NO INDEPENDENT THOUGHT'],
+    ['huffpost', 'NO INDEPENDENT THOUGHT'], ['dailymail', 'NO INDEPENDENT THOUGHT'],
+    ['breitbart', 'NO INDEPENDENT THOUGHT'], ['politico', 'NO INDEPENDENT THOUGHT'],
+    ['thehill', 'NO INDEPENDENT THOUGHT'], ['axios', 'NO INDEPENDENT THOUGHT'],
+    // Social / tech
+    ['facebook', 'CONFORM'], ['instagram', 'CONFORM'], ['twitter', 'CONFORM'],
+    ['x.com', 'CONFORM'], ['tiktok', 'CONFORM'], ['snapchat', 'CONFORM'],
+    ['linkedin', 'SUBMIT'], ['pinterest', 'CONFORM'],
+    // Gaming
+    ['steampowered', 'SLEEP'], ['epicgames', 'SLEEP'], ['xbox', 'SLEEP'],
+    ['playstation', 'SLEEP'], ['nintendo', 'SLEEP'], ['roblox', 'SLEEP'],
+    ['ea.com', 'SLEEP'], ['ubisoft', 'SLEEP'], ['blizzard', 'SLEEP'],
+];
+
+// Regex rules applied to the selector string first, then full context.
+// Ordered from most specific to least.
+const KEYWORD_RULES = [
+    [/\bvideo\b|\bstream\b|\bwatch\b|\bpodcast\b|\bplayer\b/i, 'WATCH TV'],
+    [/\bgam(?:e|ing)\b|\besport\b/i, 'SLEEP'],
+    [/\bshop\b|\bproduct\b|\bcart\b|\bcommerce\b|\bpurchase\b/i, 'BUY'],
+    [/\bfinance\b|\bbank(?:ing)?\b|\binvest\b|\bloan\b|\binsur/i, 'WORK'],
+    [/\bnews\b|\bbreaking\b|\bpoliti(?:cs|cal)\b|\bheadline\b/i, 'NO INDEPENDENT THOUGHT'],
+    [/\bsocial\b|\bfollow\b|\bcommunity\b/i, 'CONFORM'],
+    [/\bsponsor(?:ed)?\b|\bpromot(?:ed|ion)\b|\badvert(?:is)?/i, 'OBEY'],
+    [/\bleaderboard\b|\bskyscraper\b|\bbillboard\b|\bbanner\b/i, 'OBEY'],
+];
+
+// Parse a context string; return a phrase or null for "needs LLM".
+const localClassify = (context) => {
+    const pageMatch = context.match(/\[page:([^\]]+)\]/);
+    const selMatch  = context.match(/\[sel:([^\]]+)\]/);
+    const linkMatch = context.match(/\[link:([^\]]+)\]/);
+    const linkHost  = linkMatch ? linkMatch[1] : '';
+    const pageHost  = pageMatch ? pageMatch[1] : '';
+    const selector  = selMatch  ? selMatch[1]  : '';
+
+    // 1. Destination domain — strongest signal (what the ad is *advertising*).
+    for ( const [pat, phrase] of DOMAIN_RULES ) {
+        if ( linkHost.includes(pat) ) { return phrase; }
+    }
+
+    // 2. CSS selector keywords (contain ad-type info like .video-ad, [data-type="sponsored"]).
+    for ( const [regex, phrase] of KEYWORD_RULES ) {
+        if ( regex.test(selector) ) { return phrase; }
+    }
+
+    // 3. Full context scan — catches alt text, aria-label, visible text.
+    for ( const [regex, phrase] of KEYWORD_RULES ) {
+        if ( regex.test(context) ) { return phrase; }
+    }
+
+    // 4. Page domain — weakest (page may carry unrelated ads), but still useful.
+    for ( const [pat, phrase] of DOMAIN_RULES ) {
+        if ( pageHost.includes(pat) ) { return phrase; }
+    }
+
+    return null;
+};
+
+// ---------------------------------------------------------------------------
 // System prompt is static — sent once per request; providers like OpenAI
 // cache it so it costs fewer tokens on repeated calls.
 const CLASSIFY_SYSTEM_PROMPT =
     `Ad classifier for satirical labelling. Output one label per ad, same order.\n` +
     `Labels: ${THEY_LIVE_PHRASES.join('|')}\n` +
-    `Signals in context: [page:hostname] [sel:css-selector] [link:hostname] visible-text [img-alt]\n` +
+    `Signals: [page:hostname] [sel:css-selector] [link:dest-hostname] visible-text [img-alt]\n` +
     `retail/shop→CONSUME/BUY; stream/game/video→WATCH TV/SLEEP; ` +
     `finance/bank/insurance→WORK/OBEY; news/politics/media→NO INDEPENDENT THOUGHT; ` +
-    `social/tech/app→CONFORM/SUBMIT; other→OBEY\n` +
-    `Rules: exact label text only, one per line, no extra text.`;
+    `social/tech/app→CONFORM/SUBMIT; generic ad→OBEY\n` +
+    `Rules: exact label text only, one per line, no extra text, no numbering.`;
 
 // In-memory classification cache (context hash → phrase).
 // Persisted to chrome.storage.local under 'theyLiveCache'.
@@ -304,7 +396,25 @@ async function theyLiveClassify(contexts) {
     }
     if ( misses.length === 0 ) { return results; }
 
-    const missContexts = misses.map(m => m.ctx);
+    // Local fast-path: resolve obvious cases without touching the LLM.
+    let cacheUpdated = false;
+    const llmMisses = [];
+    for ( const miss of misses ) {
+        const local = localClassify(miss.ctx);
+        if ( local ) {
+            results[miss.i] = local;
+            classifyCache.set(miss.k, local);
+            cacheUpdated = true;
+        } else {
+            llmMisses.push(miss);
+        }
+    }
+    if ( llmMisses.length === 0 ) {
+        if ( cacheUpdated ) { persistCache(); }
+        return results;
+    }
+
+    const missContexts = llmMisses.map(m => m.ctx);
     // User message: just numbered ad contexts — no repeated instructions.
     const userContent = missContexts.map((ctx, i) => `${i + 1}: ${ctx}`).join('\n');
 
@@ -350,13 +460,12 @@ async function theyLiveClassify(contexts) {
     content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
     const lines = content.split('\n').map(l => l.trim().toUpperCase());
 
-    let cacheUpdated = false;
-    for ( let j = 0; j < misses.length; j++ ) {
+    for ( let j = 0; j < llmMisses.length; j++ ) {
         const candidate = lines[j] || '';
         const phrase = THEY_LIVE_PHRASES.includes(candidate) ? candidate : '';
-        results[misses[j].i] = phrase;
+        results[llmMisses[j].i] = phrase;
         if ( phrase ) {
-            classifyCache.set(misses[j].k, phrase);
+            classifyCache.set(llmMisses[j].k, phrase);
             cacheUpdated = true;
         }
     }
