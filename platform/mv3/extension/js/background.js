@@ -238,7 +238,8 @@ function setDeveloperMode(state) {
 // System prompt is static — sent once per request; providers like OpenAI
 // cache it so it costs fewer tokens on repeated calls.
 // v4: numbered priority rules so category always beats transactional language;
-//     fixes NO IDEAS/NO IMAGINATION invalid label bug; adds CONFORM/SLEEP/SUBMIT/WORK coverage.
+//     v5: swapped rules 12/13 so therapy/mental-health fires SLEEP before wellness CONFORM;
+//         added therapy/counseling to rule 12; added mortgage/property to rule 3 (explicit).
 const CLASSIFY_SYSTEM_PROMPT = [
     'Ad classifier for satirical labelling. Output one label per ad, same order.',
     `Labels: ${THEY_LIVE_PHRASES.join('|')}`,
@@ -246,7 +247,7 @@ const CLASSIFY_SYSTEM_PROMPT = [
     'Apply the FIRST matching rule (category beats transactional language):',
     '1. streaming/music(netflix/spotify/youtube/disney+/hulu/twitch)->WATCH TV',
     '2. game/gaming/esports/console(steam/epic/playstation/xbox/nintendo)->PLAY 8 HOURS',
-    '3. finance/bank/crypto/insurance/investment->THIS IS YOUR GOD',
+    '3. finance/bank/crypto/insurance/investment/mortgage/property->THIS IS YOUR GOD',
     '4. job/recruitment/career/hiring->WORK 8 HOURS',
     '5. news/media/politics/journalism->NO INDEPENDENT THOUGHT',
     '6. dating/wedding/family/baby->MARRY AND REPRODUCE',
@@ -255,8 +256,8 @@ const CLASSIFY_SYSTEM_PROMPT = [
     '9. HR/productivity/enterprise-tools->WORK',
     '10. government/authority/legal->DO NOT QUESTION AUTHORITY',
     '11. social-media/influencer/viral->HONOR APATHY',
-    '12. beauty/wellness/skincare/cosmetics->CONFORM',
-    '13. sleep/meditation/calm/relaxation->SLEEP',
+    '12. sleep/meditation/calm/relaxation/therapy/mental-health/counseling->SLEEP',
+    '13. beauty/wellness/skincare/cosmetics->CONFORM',
     '14. newsletter/email-form/sign-up->SUBMIT',
     '15. retail/brand/lifestyle(amazon/nike/walmart/target/apple/clothing)->CONSUME',
     '16. named-product-at-a-price("X for $Y", specific item + explicit price/discount)->BUY',
