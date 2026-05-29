@@ -230,11 +230,12 @@ const THEY_LIVE_PHRASES = [
 async function theyLiveClassify(contexts) {
     if ( contexts.length === 0 ) { return []; }
 
-    const [enabled, url, model, apiKey] = await Promise.all([
+    const [enabled, url, model, apiKey, thinking] = await Promise.all([
         localRead('theyLive.ollamaEnabled'),
         localRead('theyLive.ollamaUrl'),
         localRead('theyLive.ollamaModel'),
         localRead('theyLive.ollamaApiKey'),
+        localRead('theyLive.ollamaThinking'),
     ]);
     if ( !enabled ) { return []; }
 
@@ -270,6 +271,7 @@ async function theyLiveClassify(contexts) {
                 model: ollamaModel,
                 messages: [{ role: 'user', content: prompt }],
                 stream: false,
+                ...(thinking ? { think: true } : {}),
             }),
             signal: AbortSignal.timeout(15000),
         });
@@ -358,24 +360,27 @@ function onMessage(request, sender, callback) {
             localRead('theyLive.ollamaUrl'),
             localRead('theyLive.ollamaModel'),
             localRead('theyLive.ollamaApiKey'),
-        ]).then(([enabled, url, model, apiKey]) => {
+            localRead('theyLive.ollamaThinking'),
+        ]).then(([enabled, url, model, apiKey, thinking]) => {
             callback({
                 ollamaEnabled: Boolean(enabled),
                 ollamaUrl: url || 'https://ollama.com',
                 ollamaModel: model || 'gemma4:31b-cloud',
                 ollamaApiKey: apiKey || '',
+                ollamaThinking: Boolean(thinking),
             });
         });
         return true;
     }
 
     case 'setTheyLiveSettings': {
-        const { ollamaEnabled, ollamaUrl, ollamaModel, ollamaApiKey } = request;
+        const { ollamaEnabled, ollamaUrl, ollamaModel, ollamaApiKey, ollamaThinking } = request;
         Promise.all([
             localWrite('theyLive.ollamaEnabled', Boolean(ollamaEnabled)),
             localWrite('theyLive.ollamaUrl', ollamaUrl || 'https://ollama.com'),
             localWrite('theyLive.ollamaModel', ollamaModel || 'gemma4:31b-cloud'),
             localWrite('theyLive.ollamaApiKey', ollamaApiKey || ''),
+            localWrite('theyLive.ollamaThinking', Boolean(ollamaThinking)),
         ]).then(() => { callback(); });
         return true;
     }

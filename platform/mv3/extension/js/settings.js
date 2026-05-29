@@ -239,6 +239,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
     const urlEl = document.querySelector('#theyLiveOllamaUrl');
     const modelEl = document.querySelector('#theyLiveOllamaModel');
     const apiKeyEl = document.querySelector('#theyLiveOllamaApiKey');
+    const thinkingEl = document.querySelector('#theyLiveThinking');
     const saveBtn = document.querySelector('#theyLiveSave');
     const statusEl = document.querySelector('#theyLiveSaveStatus');
     const fieldsEl = document.querySelector('#theyLiveOllamaFields');
@@ -261,6 +262,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
                 ollamaUrl: urlEl?.value.trim() || 'https://ollama.com',
                 ollamaModel: modelEl?.value.trim() || 'gemma4:31b-cloud',
                 ollamaApiKey: apiKeyEl?.value || '',
+                ollamaThinking: thinkingEl?.checked || false,
             }).then(() => {
                 if ( statusEl ) {
                     statusEl.textContent = '✓ Saved';
@@ -276,6 +278,7 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
         if ( urlEl ) { urlEl.value = data.ollamaUrl || 'https://ollama.com'; }
         if ( modelEl ) { modelEl.value = data.ollamaModel || 'gemma4:31b-cloud'; }
         if ( apiKeyEl ) { apiKeyEl.value = data.ollamaApiKey || ''; }
+        if ( thinkingEl ) { thinkingEl.checked = Boolean(data.ollamaThinking); }
         refreshFieldVisibility();
     });
 }
