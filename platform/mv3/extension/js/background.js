@@ -283,9 +283,13 @@ const DOMAIN_RULES = [
 ];
 
 // Regex rules applied to the selector string first, then full context.
+// Rules match on ad *content* (what is being advertised), NOT ad *format*.
+// Format tokens like "video", "player", "banner" are deliberately excluded:
+// they describe the delivery mechanism, not the product category — a video ad
+// for car insurance should be "THIS IS YOUR GOD", not "WATCH TV".
+// Streaming services are caught by DOMAIN_RULES (netflix, hulu, etc.).
 // Ordered from most specific to least.
 const KEYWORD_RULES = [
-    [/\bvideo\b|\bstream\b|\bwatch\b|\bpodcast\b|\bplayer\b/i, 'WATCH TV'],
     [/\bgam(?:e|ing)\b|\besport\b/i, 'PLAY 8 HOURS'],
     [/\bshop\b|\bproduct\b|\bcart\b|\bcommerce\b|\bpurchase\b/i, 'BUY'],
     [/\bfinance\b|\bbank(?:ing)?\b|\binvest\b|\bloan\b|\binsur/i, 'THIS IS YOUR GOD'],
@@ -295,9 +299,9 @@ const KEYWORD_RULES = [
     [/\bjob\b|\bcareer\b|\brecruit\b|\bhiring\b|\bemploy\b/i, 'WORK 8 HOURS'],
     [/\bnews\b|\bbreaking\b|\bpoliti(?:cs|cal)\b|\bheadline\b/i, 'NO INDEPENDENT THOUGHT'],
     [/\bsocial\b|\bfollow\b|\bcommunity\b/i, 'HONOR APATHY'],
+    [/\bsaas\b|\bsoftware\b|\bplatform\b/i, 'NO IDEAS'],
     [/\bsponsor(?:ed)?\b|\bpromot(?:ed|ion)\b|\badvert(?:is)?/i, 'OBEY'],
     [/\bleaderboard\b|\bskyscraper\b|\bbillboard\b|\bbanner\b/i, 'OBEY'],
-    [/\bsaas\b|\bapp\b|\bsoftware\b|\bplatform\b|\bai\b/i, 'NO IDEAS'],
 ];
 
 // Parse a context string; return a phrase or null for "needs LLM".
@@ -339,11 +343,12 @@ const CLASSIFY_SYSTEM_PROMPT =
     `Ad classifier for satirical labelling. Output one label per ad, same order.\n` +
     `Labels: ${THEY_LIVE_PHRASES.join('|')}\n` +
     `Signals: [page:hostname] [sel:css-selector] [link:dest-hostname] visible-text [img-alt]\n` +
-    `retail/shop→CONSUME/BUY; stream/music→WATCH TV; game/entertainment→PLAY 8 HOURS; ` +
-    `finance/bank/crypto→THIS IS YOUR GOD; insurance/job→WORK/WORK 8 HOURS; ` +
+    `retail/shop→CONSUME/BUY; streaming-service(netflix/hulu/spotify etc)→WATCH TV; game→PLAY 8 HOURS; ` +
+    `finance/bank/crypto/insurance→THIS IS YOUR GOD; job/recruitment→WORK 8 HOURS; ` +
     `news/politics→NO INDEPENDENT THOUGHT; social/influencer→HONOR APATHY; ` +
-    `dating/wedding/baby→MARRY AND REPRODUCE; saas/app/tech→NO IDEAS/NO IMAGINATION; ` +
-    `generic/other→OBEY\n` +
+    `dating/wedding/baby→MARRY AND REPRODUCE; saas/tech/software→NO IDEAS/NO IMAGINATION; ` +
+    `generic/other→OBEY. ` +
+    `IMPORTANT: video/player/banner/player are ad FORMAT not category — classify by the advertised product, not the ad format.\n` +
     `Rules: exact label text only, one per line, no extra text, no numbering.`;
 
 // In-memory classification cache (context hash → phrase).
