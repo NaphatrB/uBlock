@@ -232,6 +232,55 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
 });
 
 /******************************************************************************/
+// They Live — AI classification settings
+
+{
+    const enabledEl = document.querySelector('#theyLiveEnabled');
+    const urlEl = document.querySelector('#theyLiveOllamaUrl');
+    const modelEl = document.querySelector('#theyLiveOllamaModel');
+    const apiKeyEl = document.querySelector('#theyLiveOllamaApiKey');
+    const saveBtn = document.querySelector('#theyLiveSave');
+    const statusEl = document.querySelector('#theyLiveSaveStatus');
+    const fieldsEl = document.querySelector('#theyLiveOllamaFields');
+
+    const refreshFieldVisibility = () => {
+        if ( fieldsEl ) {
+            fieldsEl.style.display = enabledEl?.checked ? '' : 'none';
+        }
+    };
+
+    if ( enabledEl ) {
+        enabledEl.addEventListener('change', refreshFieldVisibility);
+    }
+
+    if ( saveBtn ) {
+        saveBtn.addEventListener('click', () => {
+            sendMessage({
+                what: 'setTheyLiveSettings',
+                ollamaEnabled: enabledEl?.checked || false,
+                ollamaUrl: urlEl?.value.trim() || 'http://localhost:11434',
+                ollamaModel: modelEl?.value.trim() || 'llama3.2',
+                ollamaApiKey: apiKeyEl?.value || '',
+            }).then(() => {
+                if ( statusEl ) {
+                    statusEl.textContent = '✓ Saved';
+                    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+                }
+            });
+        });
+    }
+
+    sendMessage({ what: 'getTheyLiveSettings' }).then(data => {
+        if ( !data ) { return; }
+        if ( enabledEl ) { enabledEl.checked = Boolean(data.ollamaEnabled); }
+        if ( urlEl ) { urlEl.value = data.ollamaUrl || 'http://localhost:11434'; }
+        if ( modelEl ) { modelEl.value = data.ollamaModel || 'llama3.2'; }
+        if ( apiKeyEl ) { apiKeyEl.value = data.ollamaApiKey || ''; }
+        refreshFieldVisibility();
+    });
+}
+
+/******************************************************************************/
 
 function listen() {
     const bc = new self.BroadcastChannel('uBOL');

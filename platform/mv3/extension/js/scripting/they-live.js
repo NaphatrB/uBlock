@@ -31,6 +31,52 @@ const ATTR = 'data-ubol-they-live';
 
 const randomPhrase = () => PHRASES[Math.floor(Math.random() * PHRASES.length)];
 
+// Extract text/metadata from an ad element for LLM classification.
+const extractAdContext = (el) => {
+    const parts = [];
+    const text = el.innerText?.trim().slice(0, 300);
+    if ( text ) { parts.push(text); }
+    for ( const img of el.querySelectorAll('img[alt]') ) {
+        const alt = img.alt?.trim();
+        if ( alt ) { parts.push(`[img: ${alt}]`); }
+    }
+    for ( const attr of [ 'aria-label', 'title' ] ) {
+        const val = el.getAttribute(attr)?.trim();
+        if ( val ) { parts.push(`[${attr}: ${val}]`); }
+    }
+    const link = el.querySelector('a[href]');
+    if ( link?.href ) { parts.push(`[url: ${link.href.slice(0, 120)}]`); }
+    return parts.join(' | ').slice(0, 500) || '(no content)';
+};
+
+// Batch elements for a single deferred LLM classify call.
+const classifyQueue = [];
+let classifyTimer = null;
+
+const flushClassifyQueue = () => {
+    classifyTimer = null;
+    if ( classifyQueue.length === 0 ) { return; }
+    const batch = classifyQueue.splice(0);
+    if ( typeof chrome === 'undefined' || !chrome.runtime?.sendMessage ) { return; }
+    chrome.runtime.sendMessage({
+        what: 'theyLiveClassify',
+        contexts: batch.map(b => b.context),
+    }).then(phrases => {
+        if ( !Array.isArray(phrases) ) { return; }
+        phrases.forEach((phrase, i) => {
+            if ( phrase && batch[i]?.el.isConnected ) {
+                batch[i].el.setAttribute(ATTR, phrase);
+            }
+        });
+    }).catch(() => { /* extension context may be invalidated on page unload */ });
+};
+
+const enqueueClassify = (el) => {
+    classifyQueue.push({ el, context: extractAdContext(el) });
+    if ( classifyTimer !== null ) { return; }
+    classifyTimer = (self.setTimeout || setTimeout)(flushClassifyQueue, 250);
+};
+
 const MASK_BLOCK = `{
     position: relative !important;
     display: block !important;
@@ -102,6 +148,7 @@ const tagAll = () => {
         for ( const el of matched ) {
             if ( el.hasAttribute(ATTR) ) { continue; }
             el.setAttribute(ATTR, randomPhrase());
+            enqueueClassify(el);
             tagged += 1;
         }
     }

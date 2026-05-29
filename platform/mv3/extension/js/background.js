@@ -220,6 +220,86 @@ function setDeveloperMode(state) {
 }
 
 /******************************************************************************/
+// They Live — LLM ad classification via Ollama
+
+const THEY_LIVE_PHRASES = [
+    'OBEY', 'CONSUME', 'WATCH TV', 'SLEEP', 'NO INDEPENDENT THOUGHT',
+    'SUBMIT', 'CONFORM', 'STAY ASLEEP', 'BUY', 'WORK', 'DO NOT QUESTION AUTHORITY',
+];
+
+async function theyLiveClassify(contexts) {
+    if ( contexts.length === 0 ) { return []; }
+
+    const [enabled, url, model, apiKey] = await Promise.all([
+        localRead('theyLive.ollamaEnabled'),
+        localRead('theyLive.ollamaUrl'),
+        localRead('theyLive.ollamaModel'),
+        localRead('theyLive.ollamaApiKey'),
+    ]);
+    if ( !enabled ) { return []; }
+
+    const ollamaUrl = (url || 'http://localhost:11434').replace(/\/$/, '');
+    const ollamaModel = model || 'llama3.2';
+
+    const adLines = contexts.map((ctx, i) => `Ad ${i + 1}: ${ctx}`).join('\n');
+    const phraseList = THEY_LIVE_PHRASES.join(', ');
+    const prompt =
+        `You are classifying advertisements for satirical effect.\n` +
+        `Choose the single most fitting label for each ad from this list:\n` +
+        `${phraseList}\n\n` +
+        `Hints:\n` +
+        `- products/retail/shopping → CONSUME or BUY\n` +
+        `- entertainment/streaming/games → WATCH TV or SLEEP\n` +
+        `- finance/insurance/banking → WORK or OBEY\n` +
+        `- news/politics/media → NO INDEPENDENT THOUGHT or DO NOT QUESTION AUTHORITY\n` +
+        `- social/apps/tech → CONFORM or SUBMIT\n` +
+        `- unclear → OBEY\n\n` +
+        `${adLines}\n\n` +
+        `Reply with exactly ${contexts.length} line(s), one label per line, in order. ` +
+        `Use exact labels from the list only, no other text.`;
+
+    const headers = { 'Content-Type': 'application/json' };
+    if ( apiKey ) { headers['Authorization'] = `Bearer ${apiKey}`; }
+
+    let response;
+    try {
+        response = await fetch(`${ollamaUrl}/api/chat`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                model: ollamaModel,
+                messages: [{ role: 'user', content: prompt }],
+                stream: false,
+            }),
+            signal: AbortSignal.timeout(15000),
+        });
+    } catch(reason) {
+        ubolErr(`theyLiveClassify/fetch/${reason}`);
+        return [];
+    }
+
+    if ( !response.ok ) {
+        ubolErr(`theyLiveClassify/http/${response.status}`);
+        return [];
+    }
+
+    let data;
+    try {
+        data = await response.json();
+    } catch(reason) {
+        ubolErr(`theyLiveClassify/json/${reason}`);
+        return [];
+    }
+
+    const content = data.message?.content || '';
+    const lines = content.trim().split('\n').map(l => l.trim().toUpperCase());
+    return contexts.map((_, i) => {
+        const candidate = lines[i] || '';
+        return THEY_LIVE_PHRASES.includes(candidate) ? candidate : '';
+    });
+}
+
+/******************************************************************************/
 
 function onMessage(request, sender, callback) {
 
@@ -261,6 +341,43 @@ function onMessage(request, sender, callback) {
             toggleToolbarIcon(tabId);
         }
         return false;
+    }
+
+    case 'theyLiveClassify': {
+        theyLiveClassify(request.contexts || []).then(phrases => {
+            callback(phrases);
+        }).catch(() => {
+            callback([]);
+        });
+        return true;
+    }
+
+    case 'getTheyLiveSettings': {
+        Promise.all([
+            localRead('theyLive.ollamaEnabled'),
+            localRead('theyLive.ollamaUrl'),
+            localRead('theyLive.ollamaModel'),
+            localRead('theyLive.ollamaApiKey'),
+        ]).then(([enabled, url, model, apiKey]) => {
+            callback({
+                ollamaEnabled: Boolean(enabled),
+                ollamaUrl: url || 'http://localhost:11434',
+                ollamaModel: model || 'llama3.2',
+                ollamaApiKey: apiKey || '',
+            });
+        });
+        return true;
+    }
+
+    case 'setTheyLiveSettings': {
+        const { ollamaEnabled, ollamaUrl, ollamaModel, ollamaApiKey } = request;
+        Promise.all([
+            localWrite('theyLive.ollamaEnabled', Boolean(ollamaEnabled)),
+            localWrite('theyLive.ollamaUrl', ollamaUrl || 'http://localhost:11434'),
+            localWrite('theyLive.ollamaModel', ollamaModel || 'llama3.2'),
+            localWrite('theyLive.ollamaApiKey', ollamaApiKey || ''),
+        ]).then(() => { callback(); });
+        return true;
     }
 
     case 'startCustomFilters':

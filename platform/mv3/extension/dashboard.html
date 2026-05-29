@@ -99,6 +99,17 @@
         <p data-platform-exclude="safari"><label id="strictBlockMode" data-i18n="enableStrictBlockLabel"><span class="input checkbox"><input type="checkbox"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>_</label><legend data-i18n="enableStrictBlockLegend"></legend>
         <p id="developerMode"><label data-i18n="developerModeLabel"><span class="input checkbox"><input type="checkbox"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>_</label><legend data-i18n="developerModeLegend"></legend>
     </div>
+    <div id="theyLiveAI">
+        <h3>They Live — AI Classification</h3>
+        <p>Use a local <a href="https://ollama.com" target="_blank">Ollama</a> LLM to choose the most fitting slogan for each ad based on its content, instead of picking at random.</p>
+        <p><label><span class="input checkbox"><input type="checkbox" id="theyLiveEnabled"><svg viewBox="0 0 24 24"><path d="M1.73,12.91 8.1,19.28 22.79,4.59"/></svg></span>Enable Ollama classification</label></p>
+        <div id="theyLiveOllamaFields">
+            <p><label>Ollama URL<br><input type="text" id="theyLiveOllamaUrl" placeholder="http://localhost:11434"></label></p>
+            <p><label>Model<br><input type="text" id="theyLiveOllamaModel" placeholder="llama3.2"></label></p>
+            <p><label>API Key (leave empty if not required)<br><input type="password" id="theyLiveOllamaApiKey" placeholder="sk-…"></label></p>
+            <p><button type="button" id="theyLiveSave" class="dontshrink">Save</button> <span id="theyLiveSaveStatus"></span></p>
+        </div>
+    </div>
     <div>
         <h3 data-i18n="settingsBackupRestoreLabel">_</h3>
         <p data-i18n="settingsBackupRestoreSummary">_</p>
