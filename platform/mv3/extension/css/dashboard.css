@@ -38,6 +38,7 @@ body[data-pane="settings"] #dashboard-nav .tabButton[data-pane="settings"],
 body[data-pane="rulesets"] #dashboard-nav .tabButton[data-pane="rulesets"],
 body[data-pane="filters"] #dashboard-nav .tabButton[data-pane="filters"],
 body[data-pane="develop"] #dashboard-nav .tabButton[data-pane="develop"],
+body[data-pane="they-live"] #dashboard-nav .tabButton[data-pane="they-live"],
 body[data-pane="about"] #dashboard-nav .tabButton[data-pane="about"] {
     background-color: var(--dashboard-tab-active-surface);
     border-bottom: 3px solid var(--dashboard-tab-active-ink);
@@ -65,9 +66,31 @@ body[data-pane="settings"]:not(.busy) > section[data-pane="settings"],
 body[data-pane="rulesets"]:not(.busy) > section[data-pane="rulesets"],
 body[data-pane="filters"]:not(.busy) > section[data-pane="filters"],
 body[data-pane="develop"]:not(.busy) > section[data-pane="develop"],
+body[data-pane="they-live"]:not(.busy) > section[data-pane="they-live"],
 body[data-pane="about"]:not(.busy) > section[data-pane="about"],
 body.busy[data-pane] > section[data-pane="busy"] {
     display: block;
+    }
+
+/* They Live dashboard stat cards */
+.tlStatCard {
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 6px;
+    padding: 12px 18px;
+    min-width: 90px;
+    text-align: center;
+    background: rgba(0,0,0,0.03);
+    }
+.tlStatNum {
+    font-size: 1.9em;
+    font-weight: 700;
+    color: #c44;
+    line-height: 1.2;
+    }
+.tlStatLabel {
+    font-size: 0.78em;
+    color: #888;
+    margin-top: 3px;
     }
 
 /* high dpi devices */

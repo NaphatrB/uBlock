@@ -265,30 +265,6 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
             if ( cacheSizeEl && s.cacheSize !== undefined ) {
                 cacheSizeEl.textContent = `${s.cacheSize} cached`;
             }
-            // Render phrase frequency distribution table.
-            const freq = s.phraseFreq || {};
-            const entries = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-            const grandTotal = entries.reduce((n, [, c]) => n + c, 0);
-            if ( phraseTableEl ) {
-                if ( entries.length > 0 ) {
-                    const rows = entries.map(([phrase, count]) => {
-                        const pct = grandTotal > 0 ? Math.round(count / grandTotal * 100) : 0;
-                        const bar = '█'.repeat(Math.round(pct / 5));
-                        return `<tr>
-                            <td style="padding:1px 8px 1px 0;color:#333;white-space:nowrap">${phrase}</td>
-                            <td style="padding:1px 8px 1px 0;color:#888;font-variant-numeric:tabular-nums">${count}</td>
-                            <td style="padding:1px 0;color:#aaa;font-size:0.9em">${bar} ${pct}%</td>
-                        </tr>`;
-                    }).join('');
-                    phraseTableEl.innerHTML = `<b style="color:#555">Label distribution (session)</b><table style="border-collapse:collapse;margin-top:4px">${rows}</table>`;
-                    phraseTableEl.style.display = '';
-                } else {
-                    phraseTableEl.style.display = 'none';
-                }
-            }
-            if ( exportRowEl ) {
-                exportRowEl.style.display = entries.length > 0 ? '' : 'none';
-            }
         });
     };
 
@@ -334,24 +310,6 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
         });
     }
 
-    if ( exportLogBtn ) {
-        exportLogBtn.addEventListener('click', () => {
-            sendMessage({ what: 'getTheyLiveLog' }).then(data => {
-                if ( !data?.log ) { return; }
-                const blob = new Blob(
-                    [JSON.stringify(data.log, null, 2)],
-                    { type: 'application/json' }
-                );
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `they-live-log-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-            });
-        });
-    }
-
     if ( saveBtn ) {
         saveBtn.addEventListener('click', () => {
             sendMessage({
@@ -384,6 +342,12 @@ dom.on('section[data-pane="settings"] [data-i18n="resetToDefaultButton"]', 'clic
     // Refresh stats periodically while the settings page is open.
     const statsInterval = setInterval(refreshStats, 5000);
     window.addEventListener('unload', () => clearInterval(statsInterval), { once: true });
+
+    // "view dashboard →" link — switch to the They Live pane.
+    document.querySelector('#theyLiveDashLink')?.addEventListener('click', ev => {
+        ev.preventDefault();
+        document.body.dataset.pane = 'they-live';
+    });
 }
 
 /******************************************************************************/
