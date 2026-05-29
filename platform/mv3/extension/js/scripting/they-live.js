@@ -41,21 +41,26 @@ if ( typeof chrome !== 'undefined' && chrome.runtime?.sendMessage ) {
 }
 
 // Extract text/metadata from an ad element for LLM classification.
+// Kept compact intentionally — fewer tokens per ad context.
 const extractAdContext = (el) => {
     const parts = [];
-    const text = el.innerText?.trim().slice(0, 300);
+    const text = el.innerText?.trim().slice(0, 120);
     if ( text ) { parts.push(text); }
     for ( const img of el.querySelectorAll('img[alt]') ) {
-        const alt = img.alt?.trim();
-        if ( alt ) { parts.push(`[img: ${alt}]`); }
+        const alt = img.alt?.trim().slice(0, 50);
+        if ( alt ) { parts.push(`[${alt}]`); }
     }
     for ( const attr of [ 'aria-label', 'title' ] ) {
-        const val = el.getAttribute(attr)?.trim();
-        if ( val ) { parts.push(`[${attr}: ${val}]`); }
+        const val = el.getAttribute(attr)?.trim().slice(0, 60);
+        if ( val ) { parts.push(`[${val}]`); }
     }
     const link = el.querySelector('a[href]');
-    if ( link?.href ) { parts.push(`[url: ${link.href.slice(0, 120)}]`); }
-    return parts.join(' | ').slice(0, 500) || '(no content)';
+    if ( link?.href ) {
+        try {
+            parts.push(`[${new URL(link.href).hostname}]`);
+        } catch { /* invalid URL */ }
+    }
+    return parts.join(' ').slice(0, 200) || '(no content)';
 };
 
 // Batch elements for a single deferred LLM classify call.

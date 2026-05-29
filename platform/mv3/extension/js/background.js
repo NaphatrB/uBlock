@@ -227,6 +227,16 @@ const THEY_LIVE_PHRASES = [
     'SUBMIT', 'CONFORM', 'STAY ASLEEP', 'BUY', 'WORK', 'DO NOT QUESTION AUTHORITY',
 ];
 
+// System prompt is static — sent once per request; providers like OpenAI
+// cache it so it costs fewer tokens on repeated calls.
+const CLASSIFY_SYSTEM_PROMPT =
+    `Ad classifier for satirical labelling. Output one label per ad, same order.\n` +
+    `Labels: ${THEY_LIVE_PHRASES.join('|')}\n` +
+    `retail/shop→CONSUME/BUY; stream/game→WATCH TV/SLEEP; ` +
+    `finance/bank→WORK/OBEY; news/politics→NO INDEPENDENT THOUGHT; ` +
+    `social/tech→CONFORM/SUBMIT; other→OBEY\n` +
+    `Rules: exact label text only, one per line, no extra text.`;
+
 // In-memory classification cache (context hash → phrase).
 // Persisted to chrome.storage.local under 'theyLiveCache'.
 const CACHE_MAX_SIZE = 1000;
@@ -294,22 +304,8 @@ async function theyLiveClassify(contexts) {
     if ( misses.length === 0 ) { return results; }
 
     const missContexts = misses.map(m => m.ctx);
-    const adLines = missContexts.map((ctx, i) => `Ad ${i + 1}: ${ctx}`).join('\n');
-    const phraseList = THEY_LIVE_PHRASES.join(', ');
-    const prompt =
-        `You are classifying advertisements for satirical effect.\n` +
-        `Choose the single most fitting label for each ad from this list:\n` +
-        `${phraseList}\n\n` +
-        `Hints:\n` +
-        `- products/retail/shopping → CONSUME or BUY\n` +
-        `- entertainment/streaming/games → WATCH TV or SLEEP\n` +
-        `- finance/insurance/banking → WORK or OBEY\n` +
-        `- news/politics/media → NO INDEPENDENT THOUGHT or DO NOT QUESTION AUTHORITY\n` +
-        `- social/apps/tech → CONFORM or SUBMIT\n` +
-        `- unclear → OBEY\n\n` +
-        `${adLines}\n\n` +
-        `Reply with exactly ${missContexts.length} line(s), one label per line, in order. ` +
-        `Use exact labels from the list only, no other text.`;
+    // User message: just numbered ad contexts — no repeated instructions.
+    const userContent = missContexts.map((ctx, i) => `${i + 1}: ${ctx}`).join('\n');
 
     const headers = { 'Content-Type': 'application/json' };
     if ( apiKey ) { headers['Authorization'] = `Bearer ${apiKey}`; }
@@ -321,7 +317,10 @@ async function theyLiveClassify(contexts) {
             headers,
             body: JSON.stringify({
                 model: aiModel,
-                messages: [{ role: 'user', content: prompt }],
+                messages: [
+                    { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
+                    { role: 'user', content: userContent },
+                ],
                 stream: false,
                 ...(thinking ? { think: true } : {}),
             }),
@@ -459,11 +458,10 @@ function onMessage(request, sender, callback) {
             headers,
             body: JSON.stringify({
                 model: testModel,
-                messages: [{ role: 'user', content:
-                    'Classify this ad as one of: OBEY, CONSUME, WATCH TV, SLEEP, ' +
-                    'NO INDEPENDENT THOUGHT, SUBMIT, CONFORM, STAY ASLEEP, BUY, WORK, ' +
-                    'DO NOT QUESTION AUTHORITY.\nAd: "buy cheap car insurance now"\n' +
-                    'Reply with one label only.' }],
+                messages: [
+                    { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
+                    { role: 'user', content: '1: buy cheap car insurance now' },
+                ],
                 stream: false,
                 ...(aiThinking ? { think: true } : {}),
             }),
